@@ -17,7 +17,15 @@ add_executable(httpserver
     asio/round_robin.hpp
     asio/yield.hpp
     asio/detail/yield.hpp
-    http_scala.cpp
+
+    httpserver_extern.h
+    beast_server.cpp
+    http_handler.h
+    final_action.h
+    http_handler_extern.h
+    http_handler_extern.cpp
+    httpserver.h
+    http_handler_mock.h
 )
 
 target_link_libraries(httpserver

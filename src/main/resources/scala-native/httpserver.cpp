@@ -16,29 +16,14 @@
 //
 //------------------------------------------------------------------------------
 
-#include <atomic>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
-#include <boost/config.hpp>
-#include <iostream>
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-#include <memory>
-#include <optional>
-#include <string>
-#include <boost/thread.hpp>
 
-#include "http_scala.cpp"
+#include "httpserver.h"
+
+
 
 // anticrisis: add namespace
 namespace httpserver
 {
-namespace beast = boost::beast;         // from <boost/beast.hpp>
-namespace http  = beast::http;          // from <boost/beast/http.hpp>
-namespace net   = boost::asio;          // from <boost/asio.hpp>
-using tcp       = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
 // anticrisis: add thread_count
 //std::atomic<int> thread_count;
@@ -426,10 +411,10 @@ private:
 
 
 // anticrisis: change main to run; remove doc_root
-int run(std::string_view address_,
+int run(char* address_,
         unsigned short   port,
         http_handler*    handler,
-        int              max_thread_count){
+        unsigned short   max_thread_count){
     try
     {
         //thread_count = 0;
@@ -440,7 +425,7 @@ int run(std::string_view address_,
         // The io_context is required for all I/O
         boost::asio::io_context io;
 
-        for(int i = 0; i < max_thread_count; i++){
+        for(unsigned short i = 0; i < max_thread_count; i++){
             std::unique_ptr<boost::thread> t(new boost::thread(boost::bind(&boost::asio::io_context::run, &io)));
             thread_pool.push_back(std::move(t));
         }
@@ -455,6 +440,8 @@ int run(std::string_view address_,
         io.run();
         for (auto& th : thread_pool)
             th->join();
+
+        return 0;
 
     }
     catch (const std::exception& e)
@@ -506,38 +493,4 @@ class http_handler_mock : public http_handler {
 
 } // namespace httpserver
 
-extern "C" {
-/*
-int run(char* hostname, int _port){
-        std::cout << "hostname = " << hostname << ", port = " << _port << "\n";
-        std::cout.flush();
-        try{
-            auto const address = net::ip::make_address(hostname);
-            unsigned short port = static_cast<unsigned short>(_port);
 
-            net::io_context ioc{1};
-
-            tcp::acceptor acceptor{ioc, {address, port}};
-            tcp::socket socket{ioc};
-            http_server(acceptor, socket);
-
-            std::cout << "Server running on " << hostname << ":" << port << "\n";
-            std::cout.flush();
-            ioc.run();
-            return EXIT_SUCCESS;
-        }
-        catch(std::exception const& e)
-        {
-            std::cerr << "Error: " << e.what() << std::endl;
-            return EXIT_FAILURE;
-}
-        }*/
-}
-
-int main(int argc, char** argv) {
-
-    httpserver::http_handler_mock handler;
-
-    httpserver::run("0.0.0.0", 8181, &handler,6);
-    return 0;
-}

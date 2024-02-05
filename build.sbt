@@ -17,10 +17,11 @@ nativeConfig ~= { c =>
     .withGC(GC.immix)
     .withLinkingOptions(
       c.linkingOptions ++ Seq(
-
+        "-lboost_thread", "-lboost_fiber", "-lboost_context", "-std=c++17"
       )
     )
-    //.withCompileOptions(Seq("-std=c++17"))
+    //.withCompileOptions(c.compileOptions ++ Seq("-v"))
+    //.withCompileOptions(c.compileOptions ++ Seq("-std=c++17"))
     .withClangPP(file("/usr/bin/clang++").toPath)
     //.withClang(file("/usr/bin/clang").toPath)
 }
