@@ -132,7 +132,7 @@ private:
     }
 
     // anticrisis
-    void send_no_content(int status, std::optional<headers>&& headers) {
+    void send_no_content(int status, tl::optional<headers>&& headers) {
         http::response<http::empty_body> res{ static_cast<http::status>(status),
                                              req_.version() };
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -147,7 +147,7 @@ private:
     }
 
     void send_empty(int                      status,
-                    std::optional<headers>&& headers,
+                    tl::optional<headers>&& headers,
                     size_t                   content_size,
                     std::string&&            content_type) {
         http::response<http::empty_body> res{ static_cast<http::status>(status),
@@ -166,7 +166,7 @@ private:
     }
 
     void send_body(int status,
-                   std::optional<headers>&& headers,
+                   tl::optional<headers>&& headers,
                    std::string&&            body,
                    std::string&&            content_type) {
         http::response<http::string_body> res{ static_cast<http::status>(status),
@@ -263,10 +263,15 @@ private:
         // anticrisis: replace doc_root support with http_handler
         if (req.method() == http::verb::options)
         {
-            auto [status, headers, body, content_type]
+            auto data
                 = http_handler_->options({ req.target().data(), req.target().size() },
                                          { req.body().data(), req.body().size() },
                                          std::move(get_headers));
+            auto status = std::get<0>(data);
+            auto headers = std::get<1>(data);
+            auto body = std::get<2>(data);
+            auto content_type = std::get<3>(data);
+
             return send_body(status,
                              std::move(headers),
                              std::move(body),
@@ -274,9 +279,15 @@ private:
         }
         else if (req.method() == http::verb::head)
         {
-            auto [status, headers, size, content_type]
+            auto data
                 = http_handler_->head({ req.target().data(), req.target().size() },
                                       std::move(get_headers));
+
+            auto status = std::get<0>(data);
+            auto headers = std::get<1>(data);
+            auto size = std::get<2>(data);
+            auto content_type = std::get<3>(data);
+
             return send_empty(status,
                               std::move(headers),
                               size,
@@ -284,7 +295,7 @@ private:
         }
         else if (req.method() == http::verb::get)
         {
-            std::string_view target = { req.target().data(), req.target().size() };
+            bpstd::string_view target = { req.target().data(), req.target().size() };
 
             if(http_handler_->use_async()){
 
@@ -293,7 +304,11 @@ private:
                     std::move(get_headers),
                     [this](http_handler::get_r resp){
 
-                        auto [status, headers, body, content_type] = resp;
+                        auto status = std::get<0>(resp);
+                        auto headers = std::get<1>(resp);
+                        auto body = std::get<2>(resp);
+                        auto content_type = std::get<3>(resp);
+
                         send_body(status,
                                          std::move(headers),
                                          std::move(body),
@@ -301,8 +316,12 @@ private:
                     });
 
             } else {
-                auto [status, headers, body, content_type]
+                auto data
                     = http_handler_->get(target, std::move(get_headers));
+                auto status = std::get<0>(data);
+                auto headers = std::get<1>(data);
+                auto body = std::get<2>(data);
+                auto content_type = std::get<3>(data);
                 return send_body(status,
                                  std::move(headers),
                                  std::move(body),
@@ -312,10 +331,14 @@ private:
         }
         else if (req.method() == http::verb::post)
         {
-            auto [status, headers, body, content_type]
+            auto data
                 = http_handler_->post({ req.target().data(), req.target().size() },
                                       { req.body().data(), req.body().size() },
                                       std::move(get_headers));
+            auto status = std::get<0>(data);
+            auto headers = std::get<1>(data);
+            auto body = std::get<2>(data);
+            auto content_type = std::get<3>(data);
             return send_body(status,
                              std::move(headers),
                              std::move(body),
@@ -323,18 +346,25 @@ private:
         }
         else if (req.method() == http::verb::put)
         {
-            auto [status, headers]
+            auto data
                 = http_handler_->put({ req.target().data(), req.target().size() },
                                      { req.body().data(), req.body().size() },
                                      std::move(get_headers));
+            auto status = std::get<0>(data);
+            auto headers = std::get<1>(data);
+
             return send_no_content(status, std::move(headers));
         }
         else if (req.method() == http::verb::delete_)
         {
-            auto [status, headers, body, content_type]
+            auto data
                 = http_handler_->delete_({ req.target().data(), req.target().size() },
                                          { req.body().data(), req.body().size() },
                                          std::move(get_headers));
+            auto status = std::get<0>(data);
+            auto headers = std::get<1>(data);
+            auto body = std::get<2>(data);
+            auto content_type = std::get<3>(data);
             return send_body(status,
                              std::move(headers),
                              std::move(body),
@@ -460,33 +490,33 @@ class http_handler_mock : public http_handler {
         return true;
     }
 
-    http_handler::options_r options(std::string_view target, std::string_view body, headers_access&& get_headers) override {
+    http_handler::options_r options(bpstd::string_view target, bpstd::string_view body, headers_access&& get_headers) override {
         return { 404, headers{}, "", "" };
     }
 
-    http_handler::head_r head(std::string_view target, headers_access&& get_headers) override {
+    http_handler::head_r head(bpstd::string_view target, headers_access&& get_headers) override {
         return { 404, headers{}, 0, "" };
     }
 
-    http_handler::get_r get(std::string_view target, headers_access&& get_headers) override {
+    http_handler::get_r get(bpstd::string_view target, headers_access&& get_headers) override {
         return { 200, headers{}, "", "" };
     }
 
-    void async_get(std::string_view target, headers_access&& get_headers, std::function<callback_t<http_handler::get_r>> callback) override {
+    void async_get(bpstd::string_view target, headers_access&& get_headers, std::function<callback_t<http_handler::get_r>> callback) override {
         //std::cout << "use async get " << std::endl;
         callback({ 200, headers{}, "", "" });
     }
 
 
-    http_handler::post_r post(std::string_view target, std::string_view body, headers_access&& get_headers) override {
+    http_handler::post_r post(bpstd::string_view target, bpstd::string_view body, headers_access&& get_headers) override {
         return { 404, headers{}, "", "" };
     }
 
-    http_handler::put_r put(std::string_view target, std::string_view body, headers_access&& get_headers) override{
+    http_handler::put_r put(bpstd::string_view target, bpstd::string_view body, headers_access&& get_headers) override{
         return { 404, headers{} };
     }
 
-    http_handler::delete_r delete_(std::string_view target, std::string_view body, headers_access&& get_headers) override {
+    http_handler::delete_r delete_(bpstd::string_view target, bpstd::string_view body, headers_access&& get_headers) override {
         return { 404, headers{}, "", "" };
     }
 };

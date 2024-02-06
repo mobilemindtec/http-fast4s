@@ -2,11 +2,13 @@
 #define HTTP_HANDLER_H
 
 #include <cstdlib>
-#include <optional>
 #include <tuple>
 #include <functional>
 #include <unordered_map>
 #include <string>
+
+#include "optional.h"
+#include "string_view.h"
 
 
 namespace httpserver {
@@ -19,12 +21,12 @@ class http_handler
 {
 public:
 
-    using head_r = std::tuple<int, std::optional<headers>, size_t, std::string>;
+    using head_r = std::tuple<int, tl::optional<headers>, size_t, std::string>;
     using get_r
-        = std::tuple<int, std::optional<headers>, std::string, std::string>;
+        = std::tuple<int, tl::optional<headers>, std::string, std::string>;
     using options_r      = get_r;
     using post_r         = get_r;
-    using put_r          = std::tuple<int, std::optional<headers>>;
+    using put_r          = std::tuple<int, tl::optional<headers>>;
     using delete_r       = get_r;
     using headers_access = std::function<headers()>;
 
@@ -48,38 +50,38 @@ public:
     }
 
     virtual options_r
-    options(std::string_view target,
-            std::string_view body,
+    options(bpstd::string_view target,
+            bpstd::string_view body,
             headers_access&& get_headers)
         = 0;
 
     virtual head_r
-    head(std::string_view target, headers_access&& get_headers)
+    head(bpstd::string_view target, headers_access&& get_headers)
         = 0;
 
     virtual get_r
-    get(std::string_view target, headers_access&& get_headers)
+    get(bpstd::string_view target, headers_access&& get_headers)
         = 0;
 
     virtual void
-    async_get(std::string_view target, headers_access&& get_headers, std::function<callback_t<get_r>> callback)
+    async_get(bpstd::string_view target, headers_access&& get_headers, std::function<callback_t<get_r>> callback)
         = 0;
 
     virtual post_r
-    post(std::string_view target,
-         std::string_view body,
+    post(bpstd::string_view target,
+         bpstd::string_view body,
          headers_access&& get_headers)
         = 0;
 
     virtual put_r
-    put(std::string_view target,
-        std::string_view body,
+    put(bpstd::string_view target,
+        bpstd::string_view body,
         headers_access&& get_headers)
         = 0;
 
     virtual delete_r
-    delete_(std::string_view target,
-            std::string_view body,
+    delete_(bpstd::string_view target,
+            bpstd::string_view body,
             headers_access&& get_headers)
         = 0;
 

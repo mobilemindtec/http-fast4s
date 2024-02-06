@@ -1,6 +1,7 @@
+package httpserver
 
 import scalanative.unsafe.*
-
+import scalanative.unsigned.UnsignedRichInt
 
 
 @extern
@@ -34,7 +35,7 @@ object beast_server {
   def addHttpGetAsyncHandler(handlerPtr: Ptr[Byte], cb: CFuncPtr2[Unit, RequestC, CFuncPtr2[Unit, RequestC, ResponseC]]): Unit = extern
 
   @name("create_response")
-  def createResponse(body: CString, contentType: CString): ResponseC = extern
+  def createResponse(statusCode: CInt, body: CString, contentType: CString): ResponseC = extern
 }
 
 
@@ -47,11 +48,15 @@ object Main {
     val handler = createHttpHandler()
     addHttpGetHandler(
       handler,
-      CFuncPtr1.fromScalaFunction(_ => createResponse(c"ScalaNative rocks!!", c"text/plain")))
+      CFuncPtr1.fromScalaFunction(_ => createResponse(200, c"ScalaNative rocks!!", c"text/plain")))
 
-    val port = 8181.asInstanceOf[CUnsignedShort]
-    val threads = 1.asInstanceOf[CUnsignedShort]
 
-    run(c"0.0.0.0", port, threads, handler)
+
+    val port: CInt = 8181
+    val threads: CInt = 1
+
+
+
+    run(c"0.0.0.0", port.toUShort, threads.toUShort, handler)
     ()
 }

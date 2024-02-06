@@ -28,8 +28,9 @@ void add_http_get_async_handler(void* http_handler_ptr, http_get_async_callback_
     ptr->http_get_async_callback(cb);
 }
 
-response* create_response(char* body, char* content_type){
+response* create_response(int status_code, char* body, char* content_type){
     response* resp = (response *) malloc(sizeof(response));
+    resp->status_code = status_code;
     resp->body = body;
     resp->content_type = content_type;
     return resp;

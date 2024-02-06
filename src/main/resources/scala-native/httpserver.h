@@ -11,7 +11,6 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <memory>
-#include <optional>
 #include <string>
 #include <boost/thread.hpp>
 

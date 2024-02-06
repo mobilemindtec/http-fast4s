@@ -12,7 +12,7 @@ extern "C" {
     typedef header header;
 
     struct request {
-        char* target;
+        const char* target;
         header* headers;
         //std::any aycnCppCb_;
     };
@@ -23,7 +23,7 @@ extern "C" {
         int status_code;
         header* headers;
         char* body;
-        char* content_type;        
+        char* content_type;
     };
 
     typedef response response;
