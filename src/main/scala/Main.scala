@@ -1,15 +1,28 @@
 package httpserver
 
+import scala.scalanative.unsafe
+import scala.scalanative.unsafe.CFuncPtr.toPtr
 import scalanative.unsafe.*
 import scalanative.unsigned.UnsignedRichInt
 
 
+
 @extern
 object http_extern {
-  type HeaderC = Ptr[CStruct2[CString, CString]]
-  type RequestC = Ptr[CStruct2[CString, Ptr[HeaderC]]]
+  type Header = CStruct2[CString, CString]
+  type HeaderPtr = Ptr[Header]
+
+  type Request = CStruct2[CString, HeaderPtr]
+  type RequestPtr = Ptr[Request]
   // status, headers, body, contentType
-  type ResponseC = Ptr[CStruct4[CInt, Ptr[HeaderC], CString, CString]]
+
+  type Response = CStruct4[CInt, HeaderPtr, CString, CString]
+  type ResponsePtr = Ptr[Response]
+
+  type HttpHandler = CFuncPtr2[RequestPtr, ResponsePtr, Unit]
+  type HttpHandlerSync = CFuncPtr1[RequestPtr, ResponsePtr]
+  type HttpHandlerAsync = CFuncPtr2[RequestPtr, HttpHandler, Unit]
+
 }
 @extern
 object beast_server {
@@ -17,46 +30,49 @@ object beast_server {
 
   import http_extern._
 
-  def run(hostname: CString,
+  @name("run_sync")
+  def runSync(hostname: CString,
           port: CUnsignedShort,
           maxThread: CUnsignedShort,
-          handlerPtr: Ptr[Byte]): CInt = extern
+          handler: HttpHandlerSync): CInt = extern
 
-  @name("create_http_handler")
-  def createHttpHandler(): Ptr[Byte] = extern
+  @name("run_async")
+  def runAsync(hostname: CString,
+              port: CUnsignedShort,
+              maxThread: CUnsignedShort,
+              handler: CFuncPtr): CInt = extern
 
-  @name("add_http_get_handler")
-  def addHttpGetHandler(handlerPtr: Ptr[Byte], cb: CFuncPtr1[RequestC, ResponseC]): Unit = extern
 
-  @name("create_http_handler_async")
-  def createHttpAsyncHandler(): Ptr[Byte] = extern
-
-  @name("add_http_get_async_handler")
-  def addHttpGetAsyncHandler(handlerPtr: Ptr[Byte], cb: CFuncPtr2[Unit, RequestC, CFuncPtr2[Unit, RequestC, ResponseC]]): Unit = extern
-
-  @name("create_response")
-  def createResponse(statusCode: CInt, body: CString, contentType: CString): ResponseC = extern
 }
 
-
+extension (cs: CString)
+  def string = fromCString(cs)
 
 object Main {
   import beast_server._
+  import http_extern._
+
+  def newResponse(body: CString): ResponsePtr =
+    val ptr = unsafe.stackalloc[Response]()
+    ptr._1 = 200
+    ptr._3 = body
+    ptr._4 = c"text/plain"
+    ptr
+
+  def handlerSync(req: RequestPtr): ResponsePtr =
+    newResponse(c"Scala rock's!!")
+
+  def handlerAsync(req: RequestPtr, handlerPtr: Ptr[Byte]): Unit =
+    val handler = CFuncPtr.fromPtr[HttpHandler](handlerPtr)
+    val resp = newResponse(c"Scala rock's async!!")
+    handler(req, resp)
+
 
   def main(args: Array[String]): Unit =
-
-    val handler = createHttpHandler()
-    addHttpGetHandler(
-      handler,
-      CFuncPtr1.fromScalaFunction(_ => createResponse(200, c"ScalaNative rocks!!", c"text/plain")))
-
-
-
     val port: CInt = 8181
     val threads: CInt = 1
-
-
-
-    run(c"0.0.0.0", port.toUShort, threads.toUShort, handler)
+    println("start start server")
+    //runSync(c"0.0.0.0", port.toUShort, threads.toUShort, CFuncPtr1.fromScalaFunction(handlerSync))
+    runAsync(c"0.0.0.0", port.toUShort, threads.toUShort, CFuncPtr2.fromScalaFunction(handlerAsync))
     ()
 }

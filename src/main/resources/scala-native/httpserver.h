@@ -15,6 +15,8 @@
 #include <boost/thread.hpp>
 
 #include "http_handler.h"
+#include "httpserver_extern.h"
+#include "http_handler_extern.h"
 
 namespace httpserver
 {
@@ -23,10 +25,10 @@ namespace http  = beast::http;          // from <boost/beast/http.hpp>
 namespace net   = boost::asio;          // from <boost/asio.hpp>
 using tcp       = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
-int run(char* address_,
-        unsigned short   port,
-        http_handler*    handler,
-        unsigned short   max_thread_count);
+int run(char*            address_,
+        unsigned short   port,        
+        unsigned short   max_thread_count,
+        beast_handler*   handler);
 
 }
 

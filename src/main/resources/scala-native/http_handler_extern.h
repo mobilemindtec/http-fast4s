@@ -2,7 +2,7 @@
 #define HTTP_HANDLER_EXTERN_H
 
 #include <cstdlib>
-
+#include <iostream>
 #include <functional>
 #include <unordered_map>
 #include <string>
@@ -17,7 +17,11 @@ class http_handler_extern: public http_handler {
 
 public:
 
-    http_handler_extern(){}
+    http_handler_extern(http_handler_callback_t http_handler_callback,
+                        http_handler_async_callback_t http_handler_async_callback)
+        :http_handler_callback_(http_handler_callback),
+         http_handler_async_callback_(http_handler_async_callback)
+    {}
 
     http_handler::options_r
     options(bpstd::string_view target,
@@ -48,15 +52,14 @@ public:
             bpstd::string_view body,
             headers_access&& get_headers) override;
 
-    void http_get_callback(http_get_callback_t cb);
-
-    void http_get_async_callback(http_get_async_callback_t cb);
-
-
+    std::function<callback_t<http_handler::get_r>> callback_get(){
+        return callback_get_;
+    }
 
 private:
-    http_get_callback_t http_get_callback_;
-    http_get_async_callback_t http_get_async_callback_;
+    http_handler_callback_t http_handler_callback_;
+    http_handler_async_callback_t http_handler_async_callback_;
+    std::function<callback_t<http_handler::get_r>> callback_get_;
 };
 
 }

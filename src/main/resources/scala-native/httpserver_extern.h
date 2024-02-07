@@ -14,7 +14,7 @@ extern "C" {
     struct request {
         const char* target;
         header* headers;
-        //std::any aycnCppCb_;
+        void *handler_;
     };
 
     typedef request request;
@@ -28,13 +28,19 @@ extern "C" {
 
     typedef response response;
 
-    //std::tuple<int, std::optional<headers>, std::string, std::string>
-    //std::string_view target, headers_access&& get_headers
-
     typedef void (*response_callback_t)(request* req, response* resp);
 
-    typedef response* (*http_get_callback_t) (request* req);
-    typedef void (*http_get_async_callback_t) (request* req, response_callback_t cb);
+    typedef response* (*http_handler_callback_t) (request* req);
+    typedef void (*http_handler_async_callback_t) (request* req, response_callback_t cb);
+
+    struct beast_handler {
+        http_handler_callback_t sync;
+        http_handler_async_callback_t async;
+    };
+
+    typedef beast_handler beast_handler;
+
+
 }
 
 #endif // HTTPSERVER_EXTERN_H

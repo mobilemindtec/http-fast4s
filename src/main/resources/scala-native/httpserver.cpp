@@ -20,7 +20,6 @@
 #include "httpserver.h"
 
 
-
 // anticrisis: add namespace
 namespace httpserver
 {
@@ -401,17 +400,24 @@ class http_server {
 
 public:
 
-    http_server(boost::asio::io_context& io, http_handler *handler_ptr, const net::ip::address& address, unsigned short port)
+    http_server(boost::asio::io_context& io, beast_handler* handler, const net::ip::address& address, unsigned short port)
         :acceptor_(io, {address, port}),
         strand_(boost::asio::make_strand(io)),
-        http_handler_(handler_ptr)
+        http_handler_(handler)
     {
 
     }
 
     void serve(){
 
-        auto session = http_session::create(strand_, http_handler_);
+
+        auto http_handler = new http_handler_extern(http_handler_->sync, http_handler_->async);
+
+        if(http_handler_->async != NULL){
+            http_handler->use_async(true);
+        }
+
+        auto session = http_session::create(strand_, http_handler);
 
         //std::cout << "waiting by new connections..." << std::endl;
 
@@ -436,15 +442,15 @@ private:
 
     tcp::acceptor acceptor_;
     boost::asio::strand<boost::asio::io_context::executor_type> strand_;
-    http_handler* http_handler_;
+    beast_handler* http_handler_;
 };
 
 
 // anticrisis: change main to run; remove doc_root
 int run(char* address_,
         unsigned short   port,
-        http_handler*    handler,
-        unsigned short   max_thread_count){
+        unsigned short   max_thread_count,
+        beast_handler* handler){
     try
     {
         //thread_count = 0;
