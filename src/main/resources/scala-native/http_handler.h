@@ -33,11 +33,11 @@ public:
     template<typename resp_t>
     using callback_t = void(resp_t);
 
-    typedef std::function<callback_t<get_r>> callback_get_async_t;
 
 
-    http_handler() {}
-    http_handler(bool use_async):use_async_(use_async) {}
+    http_handler()
+        :use_async_(false)
+    {}
 
     bool
     use_async(){
@@ -49,44 +49,70 @@ public:
         use_async_ = b;
     }
 
-    virtual options_r
+    virtual http_handler::options_r
     options(bpstd::string_view target,
             bpstd::string_view body,
-            headers_access&& get_headers)
-        = 0;
-
-    virtual head_r
-    head(bpstd::string_view target, headers_access&& get_headers)
-        = 0;
-
-    virtual get_r
-    get(bpstd::string_view target, headers_access&& get_headers)
-        = 0;
+            headers_access&& get_headers) = 0;
 
     virtual void
-    async_get(bpstd::string_view target, headers_access&& get_headers, std::function<callback_t<get_r>> callback)
-        = 0;
+    async_options(bpstd::string_view target,
+                  bpstd::string_view body,
+                  headers_access&& get_headers,
+                  std::function<http_handler::callback_t<options_r>> callback) = 0;
 
-    virtual post_r
+    virtual http_handler::head_r
+    head(bpstd::string_view target,
+         headers_access&& get_headers) = 0;
+
+    virtual void
+    async_head(bpstd::string_view target,
+               headers_access&& get_headers,
+               std::function<http_handler::callback_t<head_r>> callback) = 0;
+
+    virtual http_handler::get_r
+    get(bpstd::string_view target,
+        headers_access&& get_headers) = 0;
+
+    virtual void
+    async_get(bpstd::string_view target,
+              headers_access&& get_headers,
+              std::function<http_handler::callback_t<get_r>> callback) = 0;
+
+    virtual http_handler::post_r
     post(bpstd::string_view target,
          bpstd::string_view body,
-         headers_access&& get_headers)
-        = 0;
+         headers_access&& get_headers) = 0;
 
-    virtual put_r
+    virtual void
+    async_post(bpstd::string_view target,
+               bpstd::string_view body,
+               headers_access&& get_headers,
+               std::function<http_handler::callback_t<post_r>> callback) = 0;
+
+    virtual http_handler::put_r
     put(bpstd::string_view target,
         bpstd::string_view body,
-        headers_access&& get_headers)
-        = 0;
+        headers_access&& get_headers) = 0;
 
-    virtual delete_r
+    virtual void
+    async_put(bpstd::string_view target,
+              bpstd::string_view body,
+              headers_access&& get_headers,
+              std::function<http_handler::callback_t<put_r>> callback) = 0;
+
+    virtual http_handler::delete_r
     delete_(bpstd::string_view target,
             bpstd::string_view body,
-            headers_access&& get_headers)
-        = 0;
+            headers_access&& get_headers) = 0;
+
+    virtual void
+    async_delete_(bpstd::string_view target,
+                  bpstd::string_view body,
+                  headers_access&& get_headers,
+                  std::function<http_handler::callback_t<delete_r>> callback) = 0;
 
 private:
-    bool use_async_ = false;
+    bool use_async_;
 };
 
 }

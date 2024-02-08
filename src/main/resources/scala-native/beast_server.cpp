@@ -1,43 +1,8 @@
 
 #include <stdlib.h>
-#include "httpserver_extern.h"
-#include "http_handler_extern.h"
 #include "httpserver.h"
 
 extern "C" {
-
-/*
-void* create_http_handler(){
-    return new httpserver::http_handler_extern();
-}
-
-
-
-void* create_http_handler_async(){
-    httpserver::http_handler_extern* h = new httpserver::http_handler_extern();
-    h->use_async(true);
-    return h;
-}
-
-void add_http_get_handler(void* http_handler_ptr, http_get_callback_t cb){
-    httpserver::http_handler_extern* ptr =
-        static_cast<httpserver::http_handler_extern *>(http_handler_ptr);
-    ptr->http_get_callback(cb);
-}
-
-void add_http_get_async_handler(void* http_handler_ptr, http_get_async_callback_t cb){
-    httpserver::http_handler_extern* ptr =
-        static_cast<httpserver::http_handler_extern *>(http_handler_ptr);
-    ptr->http_get_async_callback(cb);
-}
-
-response* create_response(int status_code, char* body, char* content_type){
-    response* resp = (response *) malloc(sizeof(response));
-    resp->status_code = status_code;
-    resp->body = body;
-    resp->content_type = content_type;
-    return resp;
-}*/
 
 int run(
     char* hostname,
@@ -91,15 +56,12 @@ void request_callback_async(request* req, response_callback_t cb){
 }
 
 /*
-    int main(int argc, char** argv) {
-
-        void* handler = create_http_handler_async();
-        add_http_get_async_handler(handler, &c_ge_async);
+int main(int argc, char** argv) {
 
 
-        run("0.0.0.0", 8181, 2, handler);
-        //httpserver::run("0.0.0.0", 8181, &handler,6);
-        return 0;
-    }
-*/
+    run_async("0.0.0.0", 8181, 2, &request_callback_async);
+
+    return 0;
+}*/
+
 }

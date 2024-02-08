@@ -1,18 +1,21 @@
-#ifndef HTTPSERVER_EXTERN_H
-#define HTTPSERVER_EXTERN_H
+#ifndef BEAST_SERVER_H
+#define BEAST_SERVER_H
 
 #include <any>
 
 extern "C" {
+
     struct header {
-        char* name;
-        char* value;
+        const char* name;
+        const char* value;
     };
 
     typedef header header;
 
     struct request {
+        const char* verb;
         const char* target;
+        const char* body;
         header* headers;
         void *handler_;
     };
@@ -21,9 +24,10 @@ extern "C" {
 
     struct response {
         int status_code;
+        const char* body;
+        const char* content_type;
+        int content_size;
         header* headers;
-        char* body;
-        char* content_type;
     };
 
     typedef response response;
@@ -43,4 +47,4 @@ extern "C" {
 
 }
 
-#endif // HTTPSERVER_EXTERN_H
+#endif // BEAST_SERVER_H

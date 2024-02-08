@@ -8,39 +8,38 @@ import scalanative.unsigned.UnsignedRichInt
 
 
 @extern
-object http_extern {
-  type Header = CStruct2[CString, CString]
-  type HeaderPtr = Ptr[Header]
-
-  type Request = CStruct2[CString, HeaderPtr]
-  type RequestPtr = Ptr[Request]
-  // status, headers, body, contentType
-
-  type Response = CStruct4[CInt, HeaderPtr, CString, CString]
-  type ResponsePtr = Ptr[Response]
-
-  type HttpHandler = CFuncPtr2[RequestPtr, ResponsePtr, Unit]
-  type HttpHandlerSync = CFuncPtr1[RequestPtr, ResponsePtr]
-  type HttpHandlerAsync = CFuncPtr2[RequestPtr, HttpHandler, Unit]
-
-}
-@extern
 object beast_server {
 
 
-  import http_extern._
+  // name, value
+  type BeastHeader = CStruct2[CString, CString]
+  type BeastHeaderPtr = Ptr[BeastHeader]
+
+  // verb, target, body, headers
+  type BeastRequest = CStruct4[CString, CString, CString, BeastHeaderPtr]
+  type BeastRequestPtr = Ptr[BeastRequest]
+  // status, headers, body, contentType
+
+  // status code, body, content type, content size, headers
+  type BeastResponse = CStruct5[CInt, CString, CString, CInt, BeastHeaderPtr]
+  type BeastResponsePtr = Ptr[BeastResponse]
+
+  type BeastHandlerCallback = CFuncPtr2[BeastRequestPtr, BeastResponsePtr, Unit]
+  type BeastHttpHandlerSync = CFuncPtr1[BeastRequestPtr, BeastResponsePtr]
+  type BeastHttpHandlerAsync = CFuncPtr2[BeastRequestPtr, BeastHandlerCallback, Unit]
+
 
   @name("run_sync")
-  def runSync(hostname: CString,
-          port: CUnsignedShort,
-          maxThread: CUnsignedShort,
-          handler: HttpHandlerSync): CInt = extern
+  def runBeastSync(hostname: CString,
+                   port: CUnsignedShort,
+                   maxThread: CUnsignedShort,
+                   handler: BeastHttpHandlerSync): CInt = extern
 
   @name("run_async")
-  def runAsync(hostname: CString,
-              port: CUnsignedShort,
-              maxThread: CUnsignedShort,
-              handler: CFuncPtr): CInt = extern
+  def runBeastAsync(hostname: CString,
+                    port: CUnsignedShort,
+                    maxThread: CUnsignedShort,
+                    handler: CFuncPtr): CInt = extern
 
 
 }
@@ -50,20 +49,22 @@ extension (cs: CString)
 
 object Main {
   import beast_server._
-  import http_extern._
 
-  def newResponse(body: CString): ResponsePtr =
-    val ptr = unsafe.stackalloc[Response]()
+  def newResponse(body: CString): BeastResponsePtr =
+    val ptr = unsafe.stackalloc[BeastResponse]()
     ptr._1 = 200
-    ptr._3 = body
-    ptr._4 = c"text/plain"
+    ptr._2 = body
+    ptr._3 = c"text/plain"
     ptr
 
-  def handlerSync(req: RequestPtr): ResponsePtr =
+  def handlerSync(req: BeastRequestPtr): BeastResponsePtr =
     newResponse(c"Scala rock's!!")
 
-  def handlerAsync(req: RequestPtr, handlerPtr: Ptr[Byte]): Unit =
-    val handler = CFuncPtr.fromPtr[HttpHandler](handlerPtr)
+  def handlerAsync(req: BeastRequestPtr, handlerPtr: Ptr[Byte]): Unit =
+
+    println(s"${req._1.string} ${req._2.string}: ${req._3}")
+
+    val handler = CFuncPtr.fromPtr[BeastHandlerCallback](handlerPtr)
     val resp = newResponse(c"Scala rock's async!!")
     handler(req, resp)
 
@@ -73,6 +74,6 @@ object Main {
     val threads: CInt = 1
     println("start start server")
     //runSync(c"0.0.0.0", port.toUShort, threads.toUShort, CFuncPtr1.fromScalaFunction(handlerSync))
-    runAsync(c"0.0.0.0", port.toUShort, threads.toUShort, CFuncPtr2.fromScalaFunction(handlerAsync))
+    runBeastAsync(c"0.0.0.0", port.toUShort, threads.toUShort, CFuncPtr2.fromScalaFunction(handlerAsync))
     ()
 }
