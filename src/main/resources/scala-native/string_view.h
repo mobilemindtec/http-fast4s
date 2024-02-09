@@ -533,9 +533,9 @@ inline constexpr basic_string_view<CharT,Traits>::basic_string_view(const char_t
 template<typename CharT, typename Traits>
 inline constexpr basic_string_view<CharT,Traits>::basic_string_view(const char_type* str, size_type count)
     noexcept
-    : m_str(str),
-    m_size(count)
-{
+    : m_size(count),
+    m_str(str)
+{    
 
 }
 
@@ -591,6 +591,7 @@ inline constexpr const typename basic_string_view<CharT,Traits>::char_type*
 basic_string_view<CharT,Traits>::data()
     const noexcept
 {
+
     return m_str;
 }
 

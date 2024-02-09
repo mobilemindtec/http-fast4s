@@ -246,6 +246,11 @@ private:
         };
 
 
+        std::string r_target = std::string { req.target().data(), req.target().size() };
+        std::string r_body = std::string { req.body().data(), req.body().size() };
+
+
+
         // Make sure we can handle the method
         // anticrisis: add methods
         if (req.method() != http::verb::get && req.method() != http::verb::head
@@ -262,8 +267,8 @@ private:
         // anticrisis: replace doc_root support with http_handler
         if (req.method() == http::verb::options)
         {
-            bpstd::string_view target = { req.target().data(), req.target().size() };
-            bpstd::string_view req_body = { req.body().data(), req.body().size() };
+            bpstd::string_view target = { r_target };
+            bpstd::string_view req_body = { r_body };
 
             if (http_handler_->use_async()) {
 
@@ -302,7 +307,7 @@ private:
         }
         else if (req.method() == http::verb::head)
         {
-            bpstd::string_view target = { req.target().data(), req.target().size() };
+            bpstd::string_view target = { r_target };
 
             if (http_handler_->use_async()) {
 
@@ -340,9 +345,11 @@ private:
         }
         else if (req.method() == http::verb::get)
         {
-            bpstd::string_view target = { req.target().data(), req.target().size() };
+            bpstd::string_view target = { r_target };
 
             if(http_handler_->use_async()){
+
+                std::cout << "this " << target.data() << std::endl;
 
                 return http_handler_->async_get(
                     target,
@@ -376,8 +383,8 @@ private:
         }
         else if (req.method() == http::verb::post)
         {
-            bpstd::string_view target = { req.target().data(), req.target().size() };
-            bpstd::string_view req_body = { req.body().data(), req.body().size() };
+            bpstd::string_view target = { r_target };
+            bpstd::string_view req_body = { r_body };
 
             if (http_handler_->use_async()) {
                 return http_handler_->async_post(
@@ -414,7 +421,7 @@ private:
         else if (req.method() == http::verb::put)
         {
 
-            bpstd::string_view target = { req.target().data(), req.target().size() };
+            bpstd::string_view target = { r_target };
             bpstd::string_view req_body =  { req.body().data(), req.body().size() };
 
             if (http_handler_->use_async()) {
@@ -445,8 +452,8 @@ private:
         }
         else if (req.method() == http::verb::delete_)
         {
-            bpstd::string_view target = { req.target().data(), req.target().size() };
-            bpstd::string_view req_body = { req.body().data(), req.body().size() };
+            bpstd::string_view target = { r_target };
+            bpstd::string_view req_body = { r_body };
 
             if (http_handler_->use_async()) {
                 return http_handler_->async_delete_(

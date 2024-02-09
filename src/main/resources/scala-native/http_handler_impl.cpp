@@ -191,6 +191,7 @@ http_handler_impl::async_get(bpstd::string_view target,
     req->target = target.c_str();
     req->verb = "GET";
 
+    std::cout << "string_view " << target << ", data() " << target.data() << ", c_str() " << target.c_str() << std::endl;
     std::cout << "BEAST" << req->verb << " " << req->target << std::endl;
 
     (*http_handler_async_callback_)(req, &async_get_callback_wrap);
