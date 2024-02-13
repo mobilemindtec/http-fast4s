@@ -26,7 +26,7 @@ using tcp       = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 int run(char*            address_,
         unsigned short   port,        
         unsigned short   max_thread_count,
-        beast_handler*   handler);
+        beast_handler_t*   handler);
 
 }
 

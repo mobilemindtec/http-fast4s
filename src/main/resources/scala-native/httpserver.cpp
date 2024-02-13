@@ -106,66 +106,8 @@ private:
         return res;
     }
 
-    // Returns a not found response
-    http::message_generator not_found(beast::string_view target) {
-        http::response<http::string_body> res{ http::status::not_found,
-                                              req_.version() };
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, "text/plain");
-        res.keep_alive(req_.keep_alive());
-        res.body() = "The resource '" + std::string(target) + "' was not found.";
-        res.prepare_payload();
-        return res;
-    }
-
-    // Returns a server error response
-    http::message_generator server_error(beast::string_view what) {
-        http::response<http::string_body> res{ http::status::internal_server_error,
-                                              req_.version() };
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, "text/plain");
-        res.keep_alive(req_.keep_alive());
-        res.body() = "An error occurred: '" + std::string(what) + "'";
-        res.prepare_payload();
-        return res;
-    }
-
-    // anticrisis
-    void send_no_content(int status, tl::optional<headers>&& headers) {
-        http::response<http::empty_body> res{ static_cast<http::status>(status),
-                                             req_.version() };
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        if (headers)
-            for (auto& kv: *headers)
-            {
-                res.base().set(kv.first, std::move(kv.second));
-            }
-        res.keep_alive(req_.keep_alive());
-        res.prepare_payload();
-        send_response(std::move(res));
-    }
-
-    void send_empty(int                      status,
-                    tl::optional<headers>&& headers,
-                    size_t                   content_size,
-                    std::string&&            content_type) {
-        http::response<http::empty_body> res{ static_cast<http::status>(status),
-                                             req_.version() };
-        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(http::field::content_type, content_type);
-        res.content_length(content_size);
-        if (headers)
-            for (auto& kv: *headers)
-            {
-                res.base().set(kv.first, std::move(kv.second));
-            }
-        res.keep_alive(req_.keep_alive());
-        res.prepare_payload();
-        send_response(std::move(res));
-    }
-
     void send_body(int status,
-                   tl::optional<headers>&& headers,
+                   tl::optional<std::unordered_map<std::string, std::string>>&& headers,
                    std::string&&            body,
                    std::string&&            content_type) {
         http::response<http::string_body> res{ static_cast<http::status>(status),
@@ -180,6 +122,115 @@ private:
         res.keep_alive(req_.keep_alive());
         res.prepare_payload();
         send_response(std::move(res));
+    }
+
+
+    void create_string_response(response_t* response) {
+
+        //std::cout << "create_string_response" << std::endl;
+
+        http::response<http::string_body> res{ static_cast<http::status>(response->status_code),
+                                              req_.version() };
+
+        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http::field::content_type, response->content_type);
+
+        headers_t* headers = response->headers;
+
+        if(headers != NULL){
+            int size = headers->size;
+            header_t* hs = headers->headers;
+            for(int i = 0; i < size; i++){
+                std::string name {hs->name};
+                std::string value {hs->value};
+                res.base().set(name, std::move(value));
+                hs++;
+            }
+        }
+
+        body_t* body = response->body;
+        if(body != NULL) {
+            res.content_length(body->size);
+            if(body->body != NULL){
+                auto sbody = std::string { body->body };
+                res.body() = std::move(sbody);
+            }
+        }
+
+        res.keep_alive(req_.keep_alive());
+        res.prepare_payload();
+        send_response(std::move(res));
+    }
+
+    void create_buffer_response(response_t* response) {      
+        http::response<http::buffer_body> res{ static_cast<http::status>(response->status_code),
+                                              req_.version() };
+
+        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http::field::content_type, response->content_type);
+        res.content_length(response->body->size);
+
+        headers_t* headers = response->headers;
+
+        if(headers != NULL){
+            int size = headers->size;
+            header_t* hs = headers->headers;
+            for(int i = 0; i < size; i++){
+                res.base().set(hs->name, hs->value);
+                hs++;
+            }
+        }
+
+        //http::buffer_body buffer(response->body->body_raw, response->body->size);
+        //boost::asio::buffer buffer();
+
+        res.body().data = (char *)response->body->body_raw;
+        res.body().size = response->body->size;
+
+        res.keep_alive(req_.keep_alive());
+        res.prepare_payload();
+        send_response(std::move(res));
+    }
+
+    void send_response_t(response_t* response) {
+
+        bool body_bytes = response->body->body_raw != NULL;
+
+        if(body_bytes)
+            create_buffer_response(response);
+        else
+            create_string_response(response);
+
+
+
+
+
+        //http::response<http::string_body> res{ static_cast<http::status>(raw->status_code),
+        //                                      req_.version() };
+        //res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+        //res.set(http::field::content_type, response->content_type);
+        //res.content_length(body.size());
+        ////if (headers)
+        ////    for (auto& kv: *headers)
+        ////        res.base().set(kv.first, std::move(kv.second));
+
+
+        //res.keep_alive(req_.keep_alive());
+        //res.prepare_payload();
+        //send_response(std::move(res));
+    }
+
+    //template <bool isRequest, class Body, class Fields>
+    void send_response(http::message_generator&& msg)
+    {
+
+        bool keep_alive = msg.keep_alive();
+
+        beast::async_write(
+            stream_,
+            std::move(msg),
+            beast::bind_front_handler(
+                &http_session::on_write, shared_from_this(), keep_alive));
     }
 
     void on_write(
@@ -211,19 +262,34 @@ private:
         // At this point the connection is closed gracefully
     }
 
-
-    //template <bool isRequest, class Body, class Fields>
-    void send_response(http::message_generator&& msg)
-    {
-
-        bool keep_alive = msg.keep_alive();
-
-        beast::async_write(
-            stream_,
-            std::move(msg),
-            beast::bind_front_handler(
-                &http_session::on_write, shared_from_this(), keep_alive));
+    std::string get_verb(http::verb verb){
+        switch(verb) {
+        case http::verb::get:
+            return "GET";
+            break;
+        case http::verb::post:
+            return "POST";
+            break;
+        case http::verb::put:
+            return "PUT";
+            break;
+        case http::verb::delete_:
+            return "DELETE";
+            break;
+        case http::verb::head:
+            return "HEAD";
+            break;
+        case http::verb::options:
+            return "OPTIONS";
+            break;
+        case http::verb::patch:
+            return "PATCH";
+            break;
+        default:
+            return "";
+        }
     }
+
 
     // This function produces an HTTP response for the given
     // request. The type of the response object depends on the
@@ -235,261 +301,64 @@ private:
     void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req)
     {
 
+        std::string verb = get_verb(req.method());
 
-        const auto get_headers = [&]() {
-            httpserver::headers hs;
-            for (auto const& kv: req.base())
-            {
-                hs.emplace(kv.name_string(), kv.value());
-            }
-            return hs;
-        };
-
-
-        std::string r_target = std::string { req.target().data(), req.target().size() };
-        std::string r_body = std::string { req.body().data(), req.body().size() };
-
-
-
-        // Make sure we can handle the method
-        // anticrisis: add methods
-        if (req.method() != http::verb::get && req.method() != http::verb::head
-            && req.method() != http::verb::post && req.method() != http::verb::put
-            && req.method() != http::verb::delete_
-            && req.method() != http::verb::options)
+        if(verb.empty()){
             return send_response(bad_request("Unknown HTTP-method"));
-
-        // Request path must be absolute and not contain "..".
-        if (req.target().empty() || req.target()[0] != '/'
-            || req.target().find("..") != beast::string_view::npos)
-            return send_response(bad_request("Illegal request-target"));
-
-        // anticrisis: replace doc_root support with http_handler
-        if (req.method() == http::verb::options)
-        {
-            bpstd::string_view target = { r_target };
-            bpstd::string_view req_body = { r_body };
-
-            if (http_handler_->use_async()) {
-
-                return http_handler_->async_options(
-                    target,
-                    req_body,
-                    std::move(get_headers),
-                    [this](http_handler::options_r resp){
-
-                        auto status = std::get<0>(resp);
-                        auto headers = std::get<1>(resp);
-                        auto body = std::get<2>(resp);
-                        auto content_type = std::get<3>(resp);
-
-                        send_body(status,
-                                  std::move(headers),
-                                  std::move(body),
-                                  std::move(content_type));
-                    });
-
-            } else {
-                auto data
-                    = http_handler_->options(target,
-                                             req_body,
-                                             std::move(get_headers));
-                auto status = std::get<0>(data);
-                auto headers = std::get<1>(data);
-                auto body = std::get<2>(data);
-                auto content_type = std::get<3>(data);
-
-                return send_body(status,
-                                 std::move(headers),
-                                 std::move(body),
-                                 std::move(content_type));
-            }
-        }
-        else if (req.method() == http::verb::head)
-        {
-            bpstd::string_view target = { r_target };
-
-            if (http_handler_->use_async()) {
-
-                return http_handler_->async_head(
-                    target,
-                    std::move(get_headers),
-                    [this](http_handler::head_r resp){
-
-                        auto status = std::get<0>(resp);
-                        auto headers = std::get<1>(resp);
-                        auto size = std::get<2>(resp);
-                        auto content_type = std::get<3>(resp);
-
-                        send_empty(std::move(status),
-                                   std::move(headers),
-                                   size,
-                                   std::move(content_type));
-                    });
-
-            } else {
-                auto data
-                    = http_handler_->head(target,
-                                          std::move(get_headers));
-
-                auto status = std::get<0>(data);
-                auto headers = std::get<1>(data);
-                auto size = std::get<2>(data);
-                auto content_type = std::get<3>(data);
-
-                return send_empty(status,
-                                  std::move(headers),
-                                  size,
-                                  std::move(content_type));
-            }
-        }
-        else if (req.method() == http::verb::get)
-        {
-            bpstd::string_view target = { r_target };
-
-            if(http_handler_->use_async()){
-
-                std::cout << "this " << target.data() << std::endl;
-
-                return http_handler_->async_get(
-                    target,
-                    std::move(get_headers),
-                    [this](http_handler::get_r resp){
-
-                        auto status = std::get<0>(resp);
-                        auto headers = std::get<1>(resp);
-                        auto body = std::get<2>(resp);
-                        auto content_type = std::get<3>(resp);
-
-                        send_body(status,
-                                         std::move(headers),
-                                         std::move(body),
-                                         std::move(content_type));
-                    });
-
-            } else {
-                auto data
-                    = http_handler_->get(target, std::move(get_headers));
-                auto status = std::get<0>(data);
-                auto headers = std::get<1>(data);
-                auto body = std::get<2>(data);
-                auto content_type = std::get<3>(data);
-                return send_body(status,
-                                 std::move(headers),
-                                 std::move(body),
-                                 std::move(content_type));
-            }
-
-        }
-        else if (req.method() == http::verb::post)
-        {
-            bpstd::string_view target = { r_target };
-            bpstd::string_view req_body = { r_body };
-
-            if (http_handler_->use_async()) {
-                return http_handler_->async_post(
-                    target,
-                    req_body,
-                    std::move(get_headers),
-                    [this](http_handler::post_r resp){
-
-                        auto status = std::get<0>(resp);
-                        auto headers = std::get<1>(resp);
-                        auto body = std::get<2>(resp);
-                        auto content_type = std::get<3>(resp);
-
-                        send_body(status,
-                                   std::move(headers),
-                                   std::move(body),
-                                   std::move(content_type));
-                    });
-            } else {
-                auto data
-                    = http_handler_->post(target,
-                                          req_body,
-                                          std::move(get_headers));
-                auto status = std::get<0>(data);
-                auto headers = std::get<1>(data);
-                auto body = std::get<2>(data);
-                auto content_type = std::get<3>(data);
-                return send_body(status,
-                                 std::move(headers),
-                                 std::move(body),
-                                 std::move(content_type));
-            }
-        }
-        else if (req.method() == http::verb::put)
-        {
-
-            bpstd::string_view target = { r_target };
-            bpstd::string_view req_body =  { req.body().data(), req.body().size() };
-
-            if (http_handler_->use_async()) {
-
-                return http_handler_->async_put(
-                    target,
-                    req_body,
-                    std::move(get_headers),
-                    [this](http_handler::put_r resp){
-
-                        auto status = std::get<0>(resp);
-                        auto headers = std::get<1>(resp);
-
-                        send_no_content(status,
-                                        std::move(headers));
-                    });
-
-            } else {
-                auto data
-                    = http_handler_->put(target,
-                                         req_body,
-                                         std::move(get_headers));
-                auto status = std::get<0>(data);
-                auto headers = std::get<1>(data);
-
-                return send_no_content(status, std::move(headers));
-            }
-        }
-        else if (req.method() == http::verb::delete_)
-        {
-            bpstd::string_view target = { r_target };
-            bpstd::string_view req_body = { r_body };
-
-            if (http_handler_->use_async()) {
-                return http_handler_->async_delete_(
-                    target,
-                    req_body,
-                    std::move(get_headers),
-                    [this](http_handler::delete_r resp){
-
-                        auto status = std::get<0>(resp);
-                        auto headers = std::get<1>(resp);
-                        auto body = std::get<2>(resp);
-                        auto content_type = std::get<3>(resp);
-
-                        send_body(status,
-                                  std::move(headers),
-                                  std::move(body),
-                                  std::move(content_type));
-                    });
-
-            } else {
-                auto data
-                    = http_handler_->delete_(target,
-                                             req_body,
-                                             std::move(get_headers));
-                auto status = std::get<0>(data);
-                auto headers = std::get<1>(data);
-                auto body = std::get<2>(data);
-                auto content_type = std::get<3>(data);
-                return send_body(status,
-                                 std::move(headers),
-                                 std::move(body),
-                                 std::move(content_type));
-            }
         }
 
-        return send_response(server_error("not implemented."));
+        std::string target = std::string { req.target().data(), req.target().size() };
+        std::string body_str = std::string { req.body().data(), req.body().size() };
+        int body_size = body_str.size();
+
+        //auto body_data = req.body().data();
+        //const auto buffer_bytes = buffer_.cdata();
+
+
+        //const char* body_raw = static_cast<const char*>(buffer_bytes.data());
+
+        request_t* request = request_new(verb.c_str(), target.c_str());
+
+        std::vector<std::pair<std::string, std::string>> hs;
+        for (auto const& kv: req.base()){
+
+            auto name = std::string{ kv.name_string().data(), kv.name_string().size() };
+            auto value = std::string{ kv.value().data(), kv.value().size() };
+
+            if(name == "Content-Type" || name == "content-type") {
+                request->content_type = value.c_str();
+            }
+
+            hs.push_back({name, value});
+        }
+
+        int hsize = hs.size();
+        if(hsize > 0){
+            request->headers = headers_new(hsize);
+            header_t* headers = (header_t*) malloc(sizeof(header_t)*hsize);
+
+            for(int i = 0; i < hsize; i++){
+                headers[i].name = hs[i].first.c_str();
+                headers[i].value = hs[i].second.c_str();
+            }
+
+            request->headers->headers = headers;
+        }
+
+        if(body_size > 0){
+            body_t* body = body_new(body_str.c_str(), NULL, body_size);
+            request->body = body;
+        }
+
+
+        if(http_handler_->use_async()) {
+            return http_handler_->dispatch_async(request, [this](response_t* resp){
+                send_response_t(resp);
+            });
+        } else {            
+            response_t* resp = http_handler_->dispatch(request);
+            return send_response_t(resp);
+        }
     }
 
     //------------------------------------------------------------------------------
@@ -519,7 +388,7 @@ class http_server {
 
 public:
 
-    http_server(boost::asio::io_context& io, beast_handler* handler, const net::ip::address& address, unsigned short port)
+    http_server(boost::asio::io_context& io, beast_handler_t* handler, const net::ip::address& address, unsigned short port)
         :acceptor_(io, {address, port}),
         strand_(boost::asio::make_strand(io)),
         http_handler_(handler)
@@ -535,7 +404,7 @@ public:
             http_handler_->async);
 
         if(http_handler_->async != NULL){
-            http_handler->use_async(true);
+            http_handler->use_async(true);            
         }
 
         auto session = http_session::create(strand_, http_handler);
@@ -563,7 +432,7 @@ private:
 
     tcp::acceptor acceptor_;
     boost::asio::strand<boost::asio::io_context::executor_type> strand_;
-    beast_handler* http_handler_;
+    beast_handler_t* http_handler_;
 };
 
 
@@ -571,7 +440,9 @@ private:
 int run(char* address_,
         unsigned short   port,
         unsigned short   max_thread_count,
-        beast_handler* handler){
+        beast_handler_t* handler){
+
+
     try
     {
         //thread_count = 0;
@@ -582,7 +453,19 @@ int run(char* address_,
         // The io_context is required for all I/O
         boost::asio::io_context io;
 
-        for(unsigned short i = 0; i < max_thread_count; i++){
+        net::signal_set signals(io, SIGINT, SIGTERM);
+        signals.async_wait(
+            [&](beast::error_code const&, int)
+            {
+                // Stop the `io_context`. This will cause `run()`
+                // to return immediately, eventually destroying the
+                // `io_context` and all of the sockets in it.
+                std::cout << "Server stopping.." << std::endl;
+                io.stop();
+            });
+
+
+        for(unsigned short i = 0; i < max_thread_count - 1; i++){
             std::unique_ptr<boost::thread> t(new boost::thread(boost::bind(&boost::asio::io_context::run, &io)));
             thread_pool.push_back(std::move(t));
         }
@@ -597,8 +480,6 @@ int run(char* address_,
         io.run();
         for (auto& th : thread_pool)
             th->join();
-
-        return 0;
 
     }
     catch (const std::exception& e)

@@ -1,5 +1,6 @@
 package httpserver
 
+import scala.collection.mutable
 import scala.scalanative.unsafe
 import scala.scalanative.unsafe.CFuncPtr.toPtr
 import scalanative.unsafe.*
@@ -8,20 +9,28 @@ import scalanative.unsigned.UnsignedRichInt
 
 
 @extern
-object beast_server {
+object beast_server:
 
 
   // name, value
   type BeastHeader = CStruct2[CString, CString]
   type BeastHeaderPtr = Ptr[BeastHeader]
 
-  // verb, target, body, headers
-  type BeastRequest = CStruct4[CString, CString, CString, BeastHeaderPtr]
+  // header start pointer, size
+  type BeastHeaders = CStruct2[BeastHeaderPtr, CInt]
+  type BeastHeadersPtr = Ptr[BeastHeaders]
+
+  // body {str, body raw, int}
+  type BeastBody = CStruct3[CString, Ptr[Byte], CInt]
+  type BeastBodyPtr = Ptr[BeastBody]
+
+  // verb, target, content type, {body str, body bytes, size} , {[{name, value], size}
+  type BeastRequest = CStruct5[CString, CString, CString, BeastBodyPtr, BeastHeadersPtr]
   type BeastRequestPtr = Ptr[BeastRequest]
   // status, headers, body, contentType
 
-  // status code, body, content type, content size, headers
-  type BeastResponse = CStruct5[CInt, CString, CString, CInt, BeastHeaderPtr]
+  // status {code, content type, {body str, body bytes, size}, {[{name, value], size}}
+  type BeastResponse = CStruct4[CInt, CString, BeastBodyPtr, BeastHeadersPtr]
   type BeastResponsePtr = Ptr[BeastResponse]
 
   type BeastHandlerCallback = CFuncPtr2[BeastRequestPtr, BeastResponsePtr, Unit]
@@ -42,38 +51,232 @@ object beast_server {
                     handler: CFuncPtr): CInt = extern
 
 
-}
+object beast:
 
-extension (cs: CString)
-  def string = fromCString(cs)
-
-object Main {
   import beast_server._
 
-  def newResponse(body: CString): BeastResponsePtr =
-    val ptr = unsafe.stackalloc[BeastResponse]()
-    ptr._1 = 200
-    ptr._2 = body
-    ptr._3 = c"text/plain"
-    ptr
+  extension (cs: CString)
+    def string = fromCString(cs)
 
-  def handlerSync(req: BeastRequestPtr): BeastResponsePtr =
-    newResponse(c"Scala rock's!!")
+  type Headers = Map[String, String]
 
-  def handlerAsync(req: BeastRequestPtr, handlerPtr: Ptr[Byte]): Unit =
+  enum HttpMethod(val verb: String):
+    case Head extends HttpMethod("HEAD")
+    case Options extends HttpMethod("OPTIONS")
+    case Patch extends HttpMethod("PATCH")
+    case Get extends HttpMethod("GET")
+    case Post extends HttpMethod("POST")
+    case Put extends HttpMethod("PUT")
+    case Delete extends HttpMethod("DELETE")
 
-    println(s"${req._1.string} ${req._2.string}: ${req._3}")
+  def toHttpMethod(verb: String): HttpMethod =
+    HttpMethod.values.find(m => m.verb.equals(verb)).getOrElse(HttpMethod.Get)
 
-    val handler = CFuncPtr.fromPtr[BeastHandlerCallback](handlerPtr)
-    val resp = newResponse(c"Scala rock's async!!")
-    handler(req, resp)
+  trait HttpRequest(val target: String,
+                    val method: HttpMethod,
+                    val body: Option[String] = None,
+                    val bodyRaw: Option[Seq[Byte]] = None,
+                    val contentType: String,
+                    val headers: Headers = Map())
 
+  trait HttpResponse(val statusCode: Int,
+                     val body: Option[String] = None,
+                     val bodyRaw: Option[Seq[Byte]] = None,
+                     val contentType: String,
+                     val headers: Headers = Map()):
+    def hasBody: Boolean = hasBodyStr || hasBodyRaw
+
+    def hasBodyStr: Boolean = body.nonEmpty
+    def hasBodyRaw: Boolean = bodyRaw.nonEmpty
+
+    def bodySize: Int =
+      body.map(_.length).getOrElse(bodyRaw.map(_.size).getOrElse(0))
+
+
+  sealed trait HttpServerBase:
+    def run: Int
+
+  sealed trait HttpServerBaseAsync[Req <: HttpRequest, Resp <: HttpResponse] extends HttpServerBase:
+    def handle(req: Req, cb: Resp => Unit): Unit
+
+  sealed trait HttpServerBaseSync[Req <: HttpRequest, Resp <: HttpResponse] extends HttpServerBase:
+    def handle: Req => Resp
+
+  class Request(override val target: String,
+                override val method: HttpMethod,
+                override val contentType: String,
+                override val body: Option[String] = None,
+                override val bodyRaw: Option[Seq[Byte]] = None,
+                override val headers: Headers = Map())
+    extends HttpRequest(target, method, body, bodyRaw, contentType, headers)
+
+  class Response(override val statusCode: Int,
+                 override val body: Option[String] = None,
+                 override val bodyRaw: Option[Seq[Byte]] = None,
+                 override val contentType: String = "",
+                 override val headers: Headers = Map())
+    extends HttpResponse(statusCode, body, bodyRaw, contentType, headers)
+
+  object BeastConverters:
+
+      // request struct {verb, target, content type, {body str, body bytes, size} , {[{name, value], size}}
+      def toRequest(req: BeastRequestPtr): Request =
+
+        var bodyRaw: Option[Seq[Byte]] = None
+        var body: Option[String] = None
+        val headers = mutable.Map[String, String]()
+
+        if req._4 != null then
+          val bodyPtr = req._4
+          val bodyStr = bodyPtr._1
+          var bodyBytes = bodyPtr._2
+          val bodyLen = bodyPtr._3
+
+          if(bodyStr != null)
+            body = Some(bodyStr.string)
+
+          if bodyBytes != null then
+            val raw = mutable.Seq.empty[Byte]
+            for i <- 0 until bodyLen do
+              raw(i) = !bodyBytes
+              bodyBytes += 1
+            bodyRaw = Some(raw.toSeq)
+
+        val headersPtr = req._5
+        if headersPtr != null then
+          var headerPtr = headersPtr._1;
+          val headersLen = headersPtr._2
+          for _ <- 0 until headersLen do
+            headers(headerPtr._1.string) = headerPtr._2.string
+            headerPtr += 1
+
+        Request(
+          method = toHttpMethod(req._1.string),
+          target = req._2.string,
+          contentType = req._3.string,
+          body = body,
+          bodyRaw = bodyRaw,
+          headers = headers.toMap
+        )
+
+    // beast struct {status code, content type, {body str, body bytes, size}, {[{name, value], size}}
+    def toResponsePtr(response: HttpResponse)(using Zone): BeastResponsePtr =
+
+      val resp = unsafe.stackalloc[BeastResponse]()
+      resp._1 = response.statusCode
+      resp._2 = unsafe.toCString(response.contentType)
+
+      if response.hasBody then
+
+        val body = unsafe.stackalloc[BeastBody]()
+        body._3 = response.bodySize
+
+        if response.hasBodyStr then
+          body._1 = unsafe.toCString(response.body.get)
+        else
+          val bsize = response.bodySize
+          var bytes = unsafe.stackalloc[Byte](bsize.toUInt)
+          for b <- response.bodyRaw.get  do
+            bytes += 1
+          body._2 = bytes
+        resp._3 =  body
+
+      if response.headers.nonEmpty then
+        val hsize = response.headers.size
+        val headers = unsafe.stackalloc[BeastHeaders]()
+        headers._1 = unsafe.stackalloc[BeastHeader](hsize.toUInt)
+        headers._2 = hsize
+
+        for (h <- response.headers; i <- 0 until hsize) do
+            val header = unsafe.stackalloc[BeastHeader]()
+            header._1 = unsafe.toCString(h._1)
+            header._2 = unsafe.toCString(h._2)
+            headers._1(i) = header
+
+        resp._4 = headers
+      resp
+
+  trait HttpServerAsync[Req <: HttpRequest, Resp <: HttpResponse](val host: String,
+                                                                  val port: Int,
+                                                                  val workers: Int = 1)
+    extends HttpServerBaseAsync[Req, Resp]:
+
+    import BeastConverters._
+
+    def handlerAsync(req: BeastRequestPtr, handlerPtr: Ptr[Byte]): Unit =
+      val request = toRequest(req).asInstanceOf[Req]
+      handle(request, { resp =>
+        Zone:
+          implicit z =>
+            val beastCallback = CFuncPtr.fromPtr[BeastHandlerCallback](handlerPtr)
+            beastCallback(req, toResponsePtr(resp))
+      })
+
+    override def run: Int =
+      Zone:
+        implicit z =>
+          runBeastAsync(
+            unsafe.toCString(host),
+            port.toUShort,
+            workers.toUShort,
+            CFuncPtr2.fromScalaFunction(handlerAsync))
+
+  trait HttpServerSync[Req <: HttpRequest, Resp <: HttpResponse](val host: String,
+                                                                 val port: Int,
+                                                                 val workers: Int = 1)
+    extends HttpServerBaseSync[Req, Resp]:
+
+    import BeastConverters._
+
+    def handlerSync(req: BeastRequestPtr): BeastResponsePtr =
+
+      val request = toRequest(req).asInstanceOf[Req]
+      val resp = handle(request)
+      Zone:
+        implicit z =>
+          toResponsePtr(resp)
+
+    override def run: Int =
+      Zone:
+        implicit z =>
+          runBeastSync(
+            unsafe.toCString(host),
+            port.toUShort,
+            workers.toUShort,
+            CFuncPtr1.fromScalaFunction(handlerSync))
+
+
+object Main {
+  import beast._
 
   def main(args: Array[String]): Unit =
-    val port: CInt = 8181
-    val threads: CInt = 1
+    val port: Int = 8181
+    val threads: Int = 5
+    val host = "0.0.0.0"
     println("start start server")
-    //runSync(c"0.0.0.0", port.toUShort, threads.toUShort, CFuncPtr1.fromScalaFunction(handlerSync))
-    runBeastAsync(c"0.0.0.0", port.toUShort, threads.toUShort, CFuncPtr2.fromScalaFunction(handlerAsync))
+    /*
+    val server = new HttpServerAsync[Request, Response](host, port, threads) {
+      override def handle(req: Request, cb: Response => Unit): Unit =
+        cb(Response(
+          statusCode = 200,
+          body = Some("[{\"name\": \"ricardo\"}, {\"name\": \"jonas\"}]"),
+          contentType = "application/json",
+          headers = Map("Token" -> "123")
+        ))
+    }*/
+
+    val server = new HttpServerSync[Request, Response](host, port, threads):
+      override def handle: (Request => Response) =
+        req =>
+          Response(
+            statusCode = 200,
+            body = Some("[{\"name\": \"ricardo\"}, {\"name\": \"jonas\"}]"),
+            contentType = "application/json",
+            headers = Map("Token" -> "123")
+          )
+
+    server.run
+
+
     ()
 }

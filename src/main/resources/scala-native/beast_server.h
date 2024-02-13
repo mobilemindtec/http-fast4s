@@ -2,48 +2,82 @@
 #define BEAST_SERVER_H
 
 #include <any>
+#include <stdlib.h>
+#include <string.h>
 
 extern "C" {
 
-    struct header {
+    typedef struct {
         const char* name;
         const char* value;
-    };
+    } header_t;
 
-    typedef header header;
+    typedef struct {
+        const char* body;
+        const char* body_raw;
+        long unsigned int size;
+    } body_t;
 
-    struct request {
+    typedef struct {
+        header_t* headers;
+        int size;
+    } headers_t;
+
+    typedef struct {
+        int noop;
+
+    } request_opts;
+
+    typedef struct {
+        int noop;
+    } response_opts;
+
+    typedef struct  {
         const char* verb;
         const char* target;
-        const char* body;
-        header* headers;
-        void *handler_;
-    };
-
-    typedef request request;
-
-    struct response {
-        int status_code;
-        const char* body;
         const char* content_type;
-        int content_size;
-        header* headers;
-    };
+        body_t* body;
+        headers_t* headers;
+        request_opts* opts;
+        void *handler_;
+    } request_t;
 
-    typedef response response;
 
-    typedef void (*response_callback_t)(request* req, response* resp);
+    typedef struct  {
+        int status_code;
+        char* content_type;
+        body_t* body;
+        headers_t* headers;
+        response_opts* opts;
+    } response_t;
 
-    typedef response* (*http_handler_callback_t) (request* req);
-    typedef void (*http_handler_async_callback_t) (request* req, response_callback_t cb);
+    typedef void (*response_callback_t)(request_t* req, response_t* resp);
 
-    struct beast_handler {
+    typedef response_t* (*http_handler_callback_t) (request_t* req);
+    typedef void (*http_handler_async_callback_t) (request_t* req, response_callback_t cb);
+
+    typedef struct {
         http_handler_callback_t sync;
         http_handler_async_callback_t async;
-    };
+    } beast_handler_t;
 
-    typedef beast_handler beast_handler;
+    // initializers
 
+    header_t* header_new(const char* name, const char* value);
+
+    headers_t* headers_new(int& size);
+
+    body_t* body_new(const char* content, const char* raw, int& size) ;
+
+    request_t* request_new(const char* verb, const char* target);
+
+    response_t* response_new(int status_code);
+
+    void headers_free(headers_t* headers);
+
+    void request_free(request_t* req);
+
+    void response_free(response_t* resp);
 
 }
 

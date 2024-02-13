@@ -21,89 +21,18 @@ public:
     http_handler_impl(http_handler_callback_t,
                         http_handler_async_callback_t);
 
-    options_r
-    options(bpstd::string_view target,
-            bpstd::string_view body,
-            headers_access&& get_headers) override;
+    response_t*
+    dispatch(request_t *) override;
 
     void
-    async_options(bpstd::string_view target,
-                  bpstd::string_view body,
-                  headers_access&& get_headers,
-                  std::function<callback_t<options_r>> callback) override;
+    dispatch_async(request_t *, std::function<callback_t<response_t*>>) override;
 
-    head_r
-    head(bpstd::string_view target,
-         headers_access&& get_headers) override;
-
-    void
-    async_head(bpstd::string_view target,
-               headers_access&& get_headers,
-               std::function<callback_t<head_r>> callback) override;
-
-    get_r
-    get(bpstd::string_view target,
-        headers_access&& get_headers) override;
-
-    void
-    async_get(bpstd::string_view target,
-              headers_access&& get_headers,
-              std::function<callback_t<get_r>> callback) override;
-
-    post_r
-    post(bpstd::string_view target,
-         bpstd::string_view body,
-         headers_access&& get_headers) override;
-
-    void
-    async_post(bpstd::string_view target,
-               bpstd::string_view body,
-               headers_access&& get_headers,
-               std::function<callback_t<post_r>> callback) override;
-
-    put_r
-    put(bpstd::string_view target,
-        bpstd::string_view body,
-        headers_access&& get_headers) override;
-
-    void
-    async_put(bpstd::string_view target,
-              bpstd::string_view body,
-              headers_access&& get_headers,
-              std::function<callback_t<put_r>> callback) override;
-
-    delete_r
-    delete_(bpstd::string_view target,
-            bpstd::string_view body,
-            headers_access&& get_headers) override;
-
-    void
-    async_delete_(bpstd::string_view target,
-                  bpstd::string_view body,
-                  headers_access&& get_headers,
-                  std::function<callback_t<delete_r>> callback) override;
-
-    std::function<callback_t<get_r>> callback_get();
-
-    std::function<callback_t<head_r>> callback_head();
-
-    std::function<callback_t<options_r>> callback_options();
-
-    std::function<callback_t<post_r>> callback_post();
-
-    std::function<callback_t<put_r>> callback_put();
-
-    std::function<callback_t<delete_r>> callback_delete();
+    std::function<callback_t<response_t*>> callback_response();
 
 private:
     http_handler_callback_t http_handler_callback_;
     http_handler_async_callback_t http_handler_async_callback_;
-    std::function<callback_t<options_r>> callback_options_;
-    std::function<callback_t<head_r>> callback_head_;
-    std::function<callback_t<get_r>> callback_get_;
-    std::function<callback_t<post_r>> callback_post_;
-    std::function<callback_t<put_r>> callback_put_;
-    std::function<callback_t<delete_r>> callback_delete_;
+    std::function<callback_t<response_t*>> callback_response_;
 };
 
 }
