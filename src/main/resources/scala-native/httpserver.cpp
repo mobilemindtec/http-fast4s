@@ -28,22 +28,49 @@ namespace httpserver
 //std::atomic<int> thread_count;
 
 //------------------------------------------------------------------------------
-class http_session : public boost::enable_shared_from_this<http_session>{
+class http_session : public std::enable_shared_from_this<http_session>{
 
 public:
 
-    typedef boost::shared_ptr<http_session> pointer;
-
-    static pointer create(
-        boost::asio::strand<boost::asio::io_context::executor_type> strand,
-        http_handler* handler_ptr)
+    http_session(tcp::socket&& socket,
+                 std::unique_ptr<http_handler> handler_ptr)
+        :stream_(std::move(socket)),
+        //deadline_timer_(socket),
+        http_handler_(std::move(handler_ptr))
     {
-        return pointer(new http_session(strand, handler_ptr));
     }
 
     tcp::socket& socket(){
         return this->stream_.socket();
     }
+
+    void run(){
+        net::dispatch(
+            stream_.get_executor(),
+            beast::bind_front_handler(
+                &http_session::do_read,
+                this->shared_from_this()));
+    }
+
+
+    // Handles an HTTP server connection
+    void do_read(){
+
+        req_ = {};
+        stream_.expires_after(std::chrono::seconds(5));
+
+        std::cout << "new connection" << std::endl;
+
+        http::async_read(
+            stream_,
+            buffer_,
+            req_,
+            beast::bind_front_handler(
+                &http_session::on_read,
+                shared_from_this()));
+    }
+
+private:
 
     void on_read(
         beast::error_code ec,
@@ -61,32 +88,6 @@ public:
         // Send the response
         handle_request(std::move(req_));
     }
-
-    // Handles an HTTP server connection
-    void start(){
-
-        req_ = {};
-        stream_.expires_after(std::chrono::seconds(30));
-
-        http::async_read(
-            stream_,
-            buffer_,
-            req_,
-            beast::bind_front_handler(
-                &http_session::on_read,
-                shared_from_this()));
-    }
-
-private:
-    http_session(boost::asio::strand<boost::asio::io_context::executor_type> strand, http_handler* handler_ptr)
-        :strand_(strand),
-        stream_(tcp::socket(strand)),
-        deadline_timer_(strand),
-        http_handler_(handler_ptr)
-    {
-
-    }
-
 
     void abort(){
         stream_.socket().cancel();
@@ -200,24 +201,6 @@ private:
             create_buffer_response(response);
         else
             create_string_response(response);
-
-
-
-
-
-        //http::response<http::string_body> res{ static_cast<http::status>(raw->status_code),
-        //                                      req_.version() };
-        //res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-        //res.set(http::field::content_type, response->content_type);
-        //res.content_length(body.size());
-        ////if (headers)
-        ////    for (auto& kv: *headers)
-        ////        res.base().set(kv.first, std::move(kv.second));
-
-
-        //res.keep_alive(req_.keep_alive());
-        //res.prepare_payload();
-        //send_response(std::move(res));
     }
 
     //template <bool isRequest, class Body, class Fields>
@@ -258,6 +241,9 @@ private:
         // Send a TCP shutdown
         beast::error_code ec;
         stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
+
+        //deadline_timer_.cancel();
+
 
         // At this point the connection is closed gracefully
     }
@@ -355,7 +341,7 @@ private:
             return http_handler_->dispatch_async(request, [this](response_t* resp){
                 send_response_t(resp);
             });
-        } else {            
+        } else {
             response_t* resp = http_handler_->dispatch(request);
             return send_response_t(resp);
         }
@@ -377,62 +363,110 @@ private:
 
 private:
     beast::tcp_stream stream_;
-    boost::asio::deadline_timer deadline_timer_;
-    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
-    http_handler* http_handler_;
+    //boost::asio::deadline_timer deadline_timer_;
+    std::unique_ptr<http_handler> http_handler_;
     http::request<http::string_body> req_;
     beast::flat_buffer buffer_;
 };
 
-class http_server {
+class http_server : public std::enable_shared_from_this<http_server>  {
 
 public:
 
-    http_server(boost::asio::io_context& io, beast_handler_t* handler, const net::ip::address& address, unsigned short port)
-        :acceptor_(io, {address, port}),
-        strand_(boost::asio::make_strand(io)),
+    http_server(net::io_context& io,
+                std::shared_ptr<beast_handler_t> handler,
+                tcp::endpoint endpoint)
+        :io_(io),
+        acceptor_(net::make_strand(io)),
         http_handler_(handler)
     {
 
-    }
+        beast::error_code ec;
 
-    void serve(){
-
-
-        auto http_handler = new http_handler_impl(
-            http_handler_->sync,
-            http_handler_->async);
-
-        if(http_handler_->async != NULL){
-            http_handler->use_async(true);            
+        // Open the acceptor
+        acceptor_.open(endpoint.protocol(), ec);
+        if(ec)
+        {
+            fail(ec, "open");
+            return;
         }
 
-        auto session = http_session::create(strand_, http_handler);
+        // Allow address reuse
+        acceptor_.set_option(net::socket_base::reuse_address(true), ec);
+        if(ec)
+        {
+            fail(ec, "set_option");
+            return;
+        }
 
-        //std::cout << "waiting by new connections..." << std::endl;
+        // Bind to the server address
+        acceptor_.bind(endpoint, ec);
+        if(ec)
+        {
+            fail(ec, "bind");
+            return;
+        }
 
-        acceptor_.async_accept(
-            session->socket(),
-            boost::bind(
-                &http_server::accept,
-                this,
-                session,
-                boost::asio::placeholders::error));
+        // Start listening for connections
+        acceptor_.listen(
+            net::socket_base::max_listen_connections, ec);
+        if(ec)
+        {
+            fail(ec, "listen");
+            return;
+        }
 
     }
+
+
+    void run(){
+        //std::cout << "http_server::run" << std::endl;
+        net::dispatch(
+            acceptor_.get_executor(),
+            beast::bind_front_handler(
+                &http_server::do_accept,
+                this->shared_from_this()));
+    }
+
 
 private:
-    void accept(http_session::pointer& session, const boost::system::error_code& ec){
 
-        if(!ec){
-            session->start();
-        }
-        serve();
+    void
+    fail(beast::error_code ec, char const* what)
+    {
+        std::cerr << what << ": " << ec.message() << "\n";
     }
 
+    void do_accept(){
+
+        //std::cout << "http_server::do_accept" << std::endl;
+        acceptor_.async_accept(
+            net::make_strand(io_),
+            beast::bind_front_handler(
+                &http_server::on_accept,
+                shared_from_this()));
+    }
+
+    void on_accept(const boost::system::error_code& ec, tcp::socket socket){
+
+        //std::cout << "http_server::on_accept" << std::endl;
+        if(!ec){
+
+            std::unique_ptr<http_handler> handler(new http_handler(http_handler_->sync, http_handler_->async));
+
+            // Create the http session and run it
+            std::make_shared<http_session>(
+                std::move(socket),
+                std::move(handler))->run();
+
+        }
+        do_accept();
+    }
+
+
+    net::io_context& io_;
     tcp::acceptor acceptor_;
-    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
-    beast_handler_t* http_handler_;
+    std::shared_ptr<beast_handler_t> http_handler_;
 };
 
 
@@ -447,11 +481,10 @@ int run(char* address_,
     {
         //thread_count = 0;
 
-        auto const address = net::ip::make_address(address_);
-        std::vector<std::unique_ptr<boost::thread>> thread_pool;
+        auto const address = net::ip::make_address(address_);        
 
         // The io_context is required for all I/O
-        boost::asio::io_context io;
+        net::io_context io{max_thread_count};
 
         net::signal_set signals(io, SIGINT, SIGTERM);
         signals.async_wait(
@@ -464,22 +497,24 @@ int run(char* address_,
                 io.stop();
             });
 
-
-        for(unsigned short i = 0; i < max_thread_count - 1; i++){
-            std::unique_ptr<boost::thread> t(new boost::thread(boost::bind(&boost::asio::io_context::run, &io)));
-            thread_pool.push_back(std::move(t));
-        }
-
-        boost::shared_ptr<http_server> server(new http_server(io, handler, address, port));
+        std::shared_ptr<beast_handler_t> handler_ptr(handler);
+        std::make_shared<http_server>(
+            io, handler_ptr, tcp::endpoint{address, port})->run();
 
         std::cout << "http server at http://" << address_ << ":" << port << " with " << max_thread_count << " threads" << std::endl;
 
-
-        server->serve();
+        std::vector<std::thread> thread_pool;
+        thread_pool.reserve(max_thread_count - 1);
+        for(auto i = max_thread_count - 1; i > 0; --i)
+            thread_pool.emplace_back(
+                [&io]
+                {
+                    io.run();
+                });
 
         io.run();
         for (auto& th : thread_pool)
-            th->join();
+            th.join();
 
     }
     catch (const std::exception& e)

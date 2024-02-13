@@ -17,10 +17,10 @@ add_executable(httpserver
     asio/yield.hpp
     asio/detail/yield.hpp
 
-    http_handler.h
+
     final_action.h
-    http_handler_impl.h
-    http_handler_impl.cpp
+    http_handler.h
+    http_handler.cpp
     httpserver.h
     httpserver.cpp
     beast_server.h

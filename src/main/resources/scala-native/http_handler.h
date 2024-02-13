@@ -2,52 +2,55 @@
 #define HTTP_HANDLER_H
 
 #include <cstdlib>
-#include <tuple>
+#include <iostream>
 #include <functional>
 #include <unordered_map>
 #include <string>
 
+#include "http_handler.h"
+#include "beast_server.h"
 #include "optional.h"
 #include "string_view.h"
-#include "beast_server.h"
 
 namespace httpserver {
 
 
-class http_handler
-{
+
+class http_handler{
+
+
 public:
 
     template<typename resp_t>
     using callback_t = void(resp_t);
 
+    http_handler() {}
+    http_handler(http_handler_callback_t,
+                 http_handler_async_callback_t);
 
+    ~http_handler() {}
 
-    http_handler()
-        :use_async_(false)
-    {}
-
-    bool
-    use_async(){
-        return use_async_;
-    }
+    response_t*
+    dispatch(request_t *);
 
     void
-    use_async(bool b){
-        use_async_ = b;
-    }
+    dispatch_async(request_t *, std::function<callback_t<response_t*>>);
 
-    virtual response_t*
-    dispatch(request_t*) = 0;
+    std::function<callback_t<response_t*>> callback_response();
 
-    virtual void
-    dispatch_async(request_t*, std::function<callback_t<response_t*>>) = 0;
+    bool
+    use_async();
 
+    void
+    use_async(bool b);
 
 private:
+    http_handler_callback_t http_handler_callback_;
+    http_handler_async_callback_t http_handler_async_callback_;
+    std::function<callback_t<response_t*>> callback_response_;
     bool use_async_;
 };
 
 }
 
-#endif // HTTP_HANDLER_H
+#endif // HTTP_HANDLER_SERVER_H

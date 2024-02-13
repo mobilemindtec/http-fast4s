@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include "httpserver.h"
+#include "beast_server.h"
 
 extern "C" {
 
@@ -123,14 +124,23 @@ int run_async(
     return run(hostname, port, max_thread_count, handler);
 }
 
-/*
+response_t* callback_sync(request_t* req){
+    response_t* resp = response_new(200);
+    resp->content_type = "text/plain";
+    int size = 6;
+    resp->body = body_new("hello!", NULL, size);
+    return resp;
+}
 
+
+/*
 int main(int argc, char** argv) {
 
 
-    //run_async("0.0.0.0", 8181, 2, &request_callback_async);
+    run_sync("0.0.0.0", 8181, 4, &callback_sync);
 
     return 0;
-}*/
+}
+*/
 
 }

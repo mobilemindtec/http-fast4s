@@ -14,7 +14,7 @@
 #include <string>
 #include <boost/thread.hpp>
 
-#include "http_handler_impl.h"
+#include "http_handler.h"
 
 namespace httpserver
 {

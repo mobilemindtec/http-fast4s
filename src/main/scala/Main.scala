@@ -100,7 +100,7 @@ object beast:
     def handle(req: Req, cb: Resp => Unit): Unit
 
   sealed trait HttpServerBaseSync[Req <: HttpRequest, Resp <: HttpResponse] extends HttpServerBase:
-    def handle: Req => Resp
+    def handle(req: Req): Resp
 
   class Request(override val target: String,
                 override val method: HttpMethod,
@@ -230,11 +230,17 @@ object beast:
 
     def handlerSync(req: BeastRequestPtr): BeastResponsePtr =
 
+      println("handlerSync 0")
+
       val request = toRequest(req).asInstanceOf[Req]
+      println("handlerSync 1")
       val resp = handle(request)
+      println("handlerSync 2")
       Zone:
         implicit z =>
-          toResponsePtr(resp)
+          val r = toResponsePtr(resp)
+          println("handlerSync 3")
+          r
 
     override def run: Int =
       Zone:
@@ -246,16 +252,30 @@ object beast:
             CFuncPtr1.fromScalaFunction(handlerSync))
 
 
-object Main {
+object Main:
   import beast._
+  import beast_server._
+  def handlerSync(req: BeastRequestPtr): BeastResponsePtr =
+    println(s"handlerSync")
+    val resp = unsafe.stackalloc[BeastResponse]()
+    val body = unsafe.stackalloc[BeastBody]()
+    body._1 = c"OK"
+    body._3 = 2
+    resp._1 = 200
+    resp._2 = c"text/plain"
+    resp._3 = body
+    resp
 
-  def main(args: Array[String]): Unit =
-    val port: Int = 8181
-    val threads: Int = 5
-    val host = "0.0.0.0"
-    println("start start server")
-    /*
-    val server = new HttpServerAsync[Request, Response](host, port, threads) {
+  def runCSyncServer(host: String, port: Int, threads: Int) =
+    Zone:
+      implicit z =>
+        runBeastSync(
+          unsafe.toCString(host),
+          port.toUShort,
+          threads.toUShort,
+          handlerSync)
+  def runAsyncServer(host: String, port: Int, threads: Int) =
+    val server = new HttpServerAsync[Request, Response](host, port, threads):
       override def handle(req: Request, cb: Response => Unit): Unit =
         cb(Response(
           statusCode = 200,
@@ -263,20 +283,27 @@ object Main {
           contentType = "application/json",
           headers = Map("Token" -> "123")
         ))
-    }*/
+    server.run
 
+  def runSyncServer(host: String, port: Int, threads: Int) =
     val server = new HttpServerSync[Request, Response](host, port, threads):
-      override def handle: (Request => Response) =
-        req =>
-          Response(
-            statusCode = 200,
-            body = Some("[{\"name\": \"ricardo\"}, {\"name\": \"jonas\"}]"),
-            contentType = "application/json",
-            headers = Map("Token" -> "123")
-          )
+      override def handle(req: Request): Response =
+        println("handle")
+        Response(
+          statusCode = 200,
+          body = Some("[{\"name\": \"ricardo\"}, {\"name\": \"jonas\"}]"),
+          contentType = "application/json",
+          headers = Map("Token" -> "123")
+        )
 
     server.run
 
+  def main(args: Array[String]): Unit =
+    val port: Int = 8181
+    val threads: Int = 4
+    val host = "0.0.0.0"
+    println("start start server")
 
+    runCSyncServer(host, port, threads)
     ()
-}
+
