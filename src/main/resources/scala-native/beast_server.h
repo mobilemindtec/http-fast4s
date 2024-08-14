@@ -56,9 +56,13 @@ extern "C" {
     typedef response_t* (*http_handler_callback_t) (request_t* req);
     typedef void (*http_handler_async_callback_t) (request_t* req, response_callback_t cb);
 
+    typedef void (*thread_init_t)(void*);
+    typedef void (*thread_starter_t)(thread_init_t, int thread_count, void*);
+
     typedef struct {
         http_handler_callback_t sync;
         http_handler_async_callback_t async;
+        thread_starter_t thread_starter;
     } beast_handler_t;
 
     // initializers

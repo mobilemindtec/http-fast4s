@@ -1,0 +1,1 @@
+/json method=POST contents="{\"id\": 10, \"nome\" :\"José Roberto\"}"

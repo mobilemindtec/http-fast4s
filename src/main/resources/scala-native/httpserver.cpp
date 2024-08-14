@@ -59,7 +59,7 @@ public:
         req_ = {};
         stream_.expires_after(std::chrono::seconds(5));
 
-        std::cout << "new connection" << std::endl;
+        //std::cout << "new connection" << std::endl;
 
         http::async_read(
             stream_,
@@ -128,9 +128,43 @@ private:
 
     void create_string_response(response_t* response) {
 
-        //std::cout << "create_string_response" << std::endl;
-
         http::response<http::string_body> res{ static_cast<http::status>(response->status_code),
+                                              req_.version() };
+
+        res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+        res.set(http::field::content_type, response->content_type);
+
+        headers_t* headers = response->headers;
+
+        if(headers != NULL){
+            int size = headers->size;
+            header_t* hs = headers->headers;
+            for(int i = 0; i < size; i++){
+                std::string name {hs->name};
+                std::string value {hs->value};
+                res.base().set(name, std::move(value));
+                hs++;
+            }                       
+        }
+
+        body_t* body = response->body;
+        if(body != NULL) {
+            res.content_length(body->size);
+            if(body->body != NULL){
+                auto sbody = std::string { body->body };
+                res.body() = std::move(sbody);
+            }
+        }
+
+
+        res.keep_alive(req_.keep_alive());
+        res.prepare_payload();
+        send_response(std::move(res));
+    }
+
+    void create_empty_response(response_t* response) {
+
+        http::response<http::empty_body> res{ static_cast<http::status>(response->status_code),
                                               req_.version() };
 
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -149,17 +183,8 @@ private:
             }
         }
 
-        body_t* body = response->body;
-        if(body != NULL) {
-            res.content_length(body->size);
-            if(body->body != NULL){
-                auto sbody = std::string { body->body };
-                res.body() = std::move(sbody);
-            }
-        }
 
         res.keep_alive(req_.keep_alive());
-        res.prepare_payload();
         send_response(std::move(res));
     }
 
@@ -195,17 +220,23 @@ private:
 
     void send_response_t(response_t* response) {
 
-        bool body_bytes = response->body->body_raw != NULL;
+        bool has_body = response->body != NULL;
+        bool body_bytes =  has_body && response->body->body_raw != NULL;
+        bool body_str = has_body && response->body->body != NULL;
 
         if(body_bytes)
             create_buffer_response(response);
-        else
+        else if(body_str)
             create_string_response(response);
+        else
+            create_empty_response(response);
     }
 
     //template <bool isRequest, class Body, class Fields>
     void send_response(http::message_generator&& msg)
     {
+
+        //std::cout << "send_response" << std::endl;
 
         bool keep_alive = msg.keep_alive();
 
@@ -470,6 +501,11 @@ private:
 };
 
 
+void thread_init(void* v){
+    net::io_context *io = (net::io_context*) v;
+    io->run();
+}
+
 // anticrisis: change main to run; remove doc_root
 int run(char* address_,
         unsigned short   port,
@@ -503,18 +539,23 @@ int run(char* address_,
 
         std::cout << "http server at http://" << address_ << ":" << port << " with " << max_thread_count << " threads" << std::endl;
 
+        handler->thread_starter(thread_init, max_thread_count, &io);
+        io.run();
+
+        /*
         std::vector<std::thread> thread_pool;
         thread_pool.reserve(max_thread_count - 1);
         for(auto i = max_thread_count - 1; i > 0; --i)
             thread_pool.emplace_back(
                 [&io]
-                {
+                {                    
                     io.run();
                 });
 
         io.run();
         for (auto& th : thread_pool)
             th.join();
+    */
 
     }
     catch (const std::exception& e)

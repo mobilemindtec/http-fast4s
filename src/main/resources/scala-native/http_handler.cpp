@@ -11,6 +11,7 @@ async_response_callback_wrap(request_t* req, response_t* resp) {
     auto handler = static_cast<http_handler *>(req->handler_);
     auto callback = handler->callback_response();
     callback(resp);
+    response_free(resp);
 }
 
 http_handler::http_handler(
@@ -38,7 +39,6 @@ response_t* http_handler::dispatch(request_t* req) {
 }
 
 void http_handler::dispatch_async(request_t* req, std::function<callback_t<response_t*>> callback) {
-    //std::cout << "dispatch_async" << std::endl;
     callback_response_ = callback;
     req->handler_ = this;
     (*http_handler_async_callback_)(req, &async_response_callback_wrap);

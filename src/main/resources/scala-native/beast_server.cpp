@@ -104,11 +104,13 @@ int run_sync(
     char* hostname,
     unsigned short port,
     unsigned short max_thread_count,
+    thread_starter_t thread_starter,
     http_handler_callback_t callback){
 
     beast_handler_t* handler = (beast_handler_t *) malloc(sizeof(beast_handler_t));
     handler->sync = callback;
     handler->async = NULL;
+    handler->thread_starter = thread_starter;
     return run(hostname, port, max_thread_count, handler);
 }
 
@@ -116,14 +118,17 @@ int run_async(
     char* hostname,
     unsigned short port,
     unsigned short max_thread_count,
+    thread_starter_t thread_starter,
     http_handler_async_callback_t callback){
 
     beast_handler_t* handler = (beast_handler_t *) malloc(sizeof(beast_handler_t));
     handler->async = callback;
     handler->sync = NULL;
+    handler->thread_starter = thread_starter;
     return run(hostname, port, max_thread_count, handler);
 }
 
+/*
 response_t* callback_sync(request_t* req){
     response_t* resp = response_new(200);
     resp->content_type = "text/plain";
@@ -131,6 +136,18 @@ response_t* callback_sync(request_t* req){
     resp->body = body_new("hello!", NULL, size);
     return resp;
 }
+
+
+void thread_init(void* io){
+    int *v = static_cast<int*>(io);
+    std::cout << "IO = " << *v << std::endl;
+}
+
+void thread_test(thread_starter_t thread_starter){
+    std::cout << "IO init thread " << std::endl;
+    int i = 11;
+    thread_starter(thread_init, 5, &i);
+}*/
 
 
 /*
