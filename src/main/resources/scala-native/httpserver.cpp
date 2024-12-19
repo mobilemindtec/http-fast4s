@@ -18,6 +18,7 @@
 
 
 #include "httpserver.h"
+#include "bench.h"
 
 
 // anticrisis: add namespace
@@ -60,6 +61,7 @@ public:
         stream_.expires_after(std::chrono::seconds(5));
 
         //std::cout << "new connection" << std::endl;
+        bench_stop("do_read");
 
         http::async_read(
             stream_,
@@ -85,6 +87,7 @@ private:
         if(ec)
             return fail(ec, "read");
 
+        bench_stop("on_read");
         // Send the response
         handle_request(std::move(req_));
     }
@@ -318,6 +321,8 @@ private:
     void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req)
     {
 
+        bench_stop("http parse done");
+
         std::string verb = get_verb(req.method());
 
         if(verb.empty()){
@@ -367,13 +372,16 @@ private:
             request->body = body;
         }
 
+        bench_stop("dispach app start");
 
         if(http_handler_->use_async()) {
             return http_handler_->dispatch_async(request, [this](response_t* resp){
+                bench_stop("dispach app async done");
                 send_response_t(resp);
             });
         } else {
             response_t* resp = http_handler_->dispatch(request);
+            bench_stop("dispach app sync done");
             return send_response_t(resp);
         }
     }
@@ -483,6 +491,8 @@ private:
         //std::cout << "http_server::on_accept" << std::endl;
         if(!ec){
 
+            bench_start();
+
             std::unique_ptr<http_handler> handler(new http_handler(http_handler_->sync, http_handler_->async));
 
             // Create the http session and run it
@@ -537,7 +547,7 @@ int run(char* address_,
         std::make_shared<http_server>(
             io, handler_ptr, tcp::endpoint{address, port})->run();
 
-        std::cout << "http server at http://" << address_ << ":" << port << " with " << max_thread_count << " threads" << std::endl;
+        std::cout << "http server at http://" << address_ << ":" << port << std::endl;
 
         handler->thread_starter(thread_init, max_thread_count, &io);
         io.run();
