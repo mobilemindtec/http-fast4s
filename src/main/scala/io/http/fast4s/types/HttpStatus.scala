@@ -1,6 +1,7 @@
-package br.com.mobilemind.beast
+package io.http.fast4s.types
 
 enum HttpStatus(val code: Int, val reason: String):
+  case StatusCode(value: Int) extends HttpStatus(value, value.toString)
   case Continue extends HttpStatus(100, "Continue")
   case SwitchingProtocols extends HttpStatus(101, "Switching Protocols")
   case Processing extends HttpStatus(102, "Processing")
@@ -65,4 +66,70 @@ enum HttpStatus(val code: Int, val reason: String):
   case NetworkAuthenticationRequired extends HttpStatus(511, "Network Authentication Required")
   case NetworkConnectTimeoutError extends HttpStatus(599, "Network Connect Timeout Error")
 
-
+object HttpStatus:
+  def make(code: Int): HttpStatus =
+    code match
+      case 100 => Continue
+      case 101 => SwitchingProtocols
+      case 102 => Processing
+      case 200 => OK
+      case 201 => Created
+      case 202 => Accepted
+      case 203 => NonAuthoritativeInformation
+      case 204 => NoContent
+      case 205 => ResetContent
+      case 206 => PartialContent
+      case 207 => MultiStatus
+      case 208 => AlreadyReported
+      case 226 => IMUsed
+      case 300 => MultipleChoices
+      case 301 => MovedPermanently
+      case 302 => Found
+      case 303 => SeeOther
+      case 304 => NotModified
+      case 305 => UseProxy
+      case 307 => TemporaryRedirect
+      case 308 => PermanentRedirect
+      case 400 => BadRequest
+      case 401 => Unauthorized
+      case 402 => PaymentRequired
+      case 403 => Forbidden
+      case 404 => NotFound
+      case 405 => MethodNotAllowed
+      case 406 => NotAcceptable
+      case 407 => ProxyAuthenticationRequired
+      case 408 => RequestTimeout
+      case 409 => Conflict
+      case 410 => Gone
+      case 411 => LengthRequired
+      case 412 => PreconditionFailed
+      case 413 => PayloadTooLarge
+      case 414 => RequestURITooLong
+      case 415 => UnsupportedMediaType
+      case 416 => RequestedRangeNotSatisfiable
+      case 417 => ExpectationFailed
+      case 418 => ImAteapot
+      case 421 => MisdirectedRequest
+      case 422 => UnprocessableEntity
+      case 423 => Locked
+      case 424 => FailedDependency
+      case 426 => UpgradeRequired
+      case 428 => PreconditionRequired
+      case 429 => TooManyRequests
+      case 431 => RequestHeaderFieldsTooLarge
+      case 444 => ConnectionClosedWithoutResponse
+      case 451 => UnavailableForLegalReasons
+      case 499 => ClientClosedRequest
+      case 500 => InternalServerError
+      case 501 => NotImplemented
+      case 502 => BadGateway
+      case 503 => ServiceUnavailable
+      case 504 => GatewayTimeout
+      case 505 => HTTPVersionNotSupported
+      case 506 => VariantAlsoNegotiates
+      case 507 => InsufficientStorage
+      case 508 => LoopDetected
+      case 510 => NotExtended
+      case 511 => NetworkAuthenticationRequired
+      case 599 => NetworkConnectTimeoutError
+      case _ => StatusCode(code)

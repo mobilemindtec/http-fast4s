@@ -1,28 +1,45 @@
 package app
 
+import io.http.fast4s.app.Fast4s.*
+import io.http.fast4s.types.HttpMethod.Get
+import io.http.fast4s.types.{Request, Response}
 
-import app.AppRouter.mkRouter
-import br.com.mobilemind.beast.*
-import br.com.mobilemind.micro.routing.router.Router
+object AppServer:
 
+  app.get("/") {
+    case req => Response.ok("hello, world!")
+  }
 
+  app.get("/user") {
+    case (req: Request) => Response.ok(s"hello, ${req.query.str("name").getOrElse("anonymous")}!")
+  }
 
-def runAsyncServer(host: String, port: Int, threads: Int) =
-  val server = new HttpServerAsync[HttpRequest, HttpResponse](host, port, threads):
+  app.get("/err") {
+    case req => throw Exception("err")
+  }
 
-    def router: Router[HttpRequest, HttpResponse, ReqExtra] = mkRouter
+  app.recover {
+    case (req, err) => Response.ok("recovered!")
+  }
 
-    override def fail(request: HttpRequest, status: HttpStatus): HttpResponse =
-      Response(
-        status = HttpStatus.NotFound,
-        body = Some("not found"),
-        contentType = ContentType.Text
-      )
+  app.interceptor(404) {
+    case (req, resp) => Response.ok("404")
+  }
 
-  server.run
+  app.enter(Get, "/.*") {
+    case req =>
+      println(s"ns enter ${req.target}")
+      req
+  }
+
+  app.leave(Get, "/.*") {
+    case (req, resp) =>
+      println(s"ns leave ${req.target}")
+      resp
+  }
+
+  def serve =
+    app.serve()
 
 @main def main(args: String*): Int =
-  val port: Int = 8181
-  val threads: Int = 5
-  val host = "0.0.0.0"
-  runAsyncServer(host, port, threads)
+  AppServer.serve

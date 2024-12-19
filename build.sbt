@@ -2,19 +2,20 @@ import scala.language.postfixOps
 import scala.scalanative.build.*
 import scala.sys.process.*
 
-scalaVersion := "3.4.1"
-name := "scala-beast"
-organization := "br.com.mobilemind.beast"
+scalaVersion := "3.6.2"
+name := "http-fast4s"
+organization := "io.http.fast4s"
 
 // set to Debug for compilation details (Info is default)
 logLevel := Level.Info
+ThisBuild / usePipelining := true
 
 lazy val appStop = inputKey[Unit]("stop app")
 lazy val appRestart = inputKey[Unit]("run app")
 lazy val showPid = inputKey[Unit]("show app PID")
 
-lazy val routing = ProjectRef(file("../micro-routing"), "appNative")
-lazy val jsonCodec = ProjectRef(file("../scala-json-codec"), "appNative")
+lazy val microRouter = ProjectRef(file("../micro-router"), "appNative")
+lazy val jsonCodec = ProjectRef(file("../json-codec"), "appNative")
 
 scalacOptions ++= Seq(
   "-new-syntax",
@@ -25,13 +26,17 @@ scalacOptions ++= Seq(
   "-deprecation",
   "-explain",
   "-explain-cyclic",
-  "-rewrite"
+  "-rewrite",
+  "-source:future",
+  "-language:experimental.modularity"
 )
 lazy val root = project.in(file(".")).
   enablePlugins(ScalaNativePlugin).
-  dependsOn(routing).
+  dependsOn(microRouter).
   dependsOn(jsonCodec).
   settings(
+
+    libraryDependencies += "org.scalatest" %%% "scalatest" % "3.2.19" % "test",
 
     // defaults set with common options shown
     nativeConfig ~= { c =>

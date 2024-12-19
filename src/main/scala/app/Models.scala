@@ -1,15 +1,15 @@
 package app
 
-import br.com.mobilemind.json.codec.converter.{Decoder, Encoder}
-import br.com.mobilemind.json.codec.converter.Decoder.given
-import br.com.mobilemind.json.codec.converter.Encoder.given
-import br.com.mobilemind.json.codec.defs.{given, *}
-import br.com.mobilemind.json.codec.converter.auto.JsonConverter
+import io.json.codec.converter.Decoder.given
+import io.json.codec.converter.{Decoder, Encoder}
+import io.json.codec.converter.Encoder.given
+import io.json.codec.converter.auto.JsonConverter
+import io.json.codec.defs.{|>, given}
+
 
 object Models:
 
   case class Person(id: Int = 0, name: String = "")derives JsonConverter
-
 
   object Person:
     val encoder: Encoder[Person] =

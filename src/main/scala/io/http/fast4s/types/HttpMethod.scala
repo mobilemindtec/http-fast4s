@@ -1,6 +1,7 @@
-package br.com.mobilemind.beast
+package io.http.fast4s.types
 
-import br.com.mobilemind.micro.routing.router.Method
+import io.micro.router.core.Method
+
 
 enum HttpMethod(val verb: String):
   case Head extends HttpMethod("HEAD")

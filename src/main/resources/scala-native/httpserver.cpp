@@ -188,7 +188,7 @@ private:
         send_response(std::move(res));
     }
 
-    void create_buffer_response(response_t* response) {      
+    void create_buffer_response(response_t* response) {
         http::response<http::buffer_body> res{ static_cast<http::status>(response->status_code),
                                               req_.version() };
 
