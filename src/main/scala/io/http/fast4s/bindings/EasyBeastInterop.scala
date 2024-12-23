@@ -1,12 +1,11 @@
 package io.http.fast4s.bindings
 
+import io.http.fast4s.bindings.EasyBeastInterop.{newBody, newHeaders, newResponse}
 import io.http.fast4s.bindings.conv.{c_str, str}
 
-import scala.collection.mutable
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 import scala.language.experimental.namedTuples
 import scala.scalanative.unsafe.*
-import scala.scalanative.unsigned.UnsignedRichInt
 
 object structs:
 
@@ -43,19 +42,16 @@ object structs:
       ___ptr
 
     def apply(headers: Map[String, String])(using Zone): Ptr[BeastHeaders] =
-      val ___ptr = apply()
-      if headers.nonEmpty then
-        val hsize = headers.size
-        var ptr = alloc[BeastHeader](sizeof[BeastHeader] * hsize.toUInt)
-        ___ptr._1 = ptr
-        ___ptr._2 = hsize
-        for h <- headers do
-          ptr._1 = h._1.c_str
-          ptr._2 = h._2.c_str
-          ptr += 1
+      if headers.isEmpty
+      then null
       else
-        ___ptr._2 = 0
-      ___ptr
+        val ___ptr = newHeaders(headers.size)
+        var pt = ___ptr._1
+        for h <- headers do
+          (!pt).name = h._1.c_str
+          (!pt).value = h._2.c_str
+          pt += 1
+        ___ptr
 
   extension (struct: BeastHeaders)
     def header: Ptr[BeastHeader] = struct._1
@@ -99,7 +95,7 @@ object structs:
           for i <- 0 until size do
             raw(i) = buff(i)
           raw
-      BeastBody(body.map(_.c_str).orNull, rawBodyPtr, size)
+      newBody(body.map(_.c_str).orNull, rawBodyPtr, size)
 
   extension (struct: BeastBody)
     def _body: CString = struct._1
@@ -195,7 +191,11 @@ object structs:
       ___ptr
 
     def apply(status: Int, contentType: String, body: Option[String], rawBody: Option[immutable.Seq[Byte]], headers: Map[String, String])(using Zone): Ptr[BeastResponse] =
-      BeastResponse(status, contentType.c_str, BeastBody(body, rawBody), BeastHeaders(headers))
+      val resp = newResponse(status)
+      (!resp)._contentType =  contentType.c_str
+      (!resp)._body = BeastBody(body, rawBody)
+      (!resp)._headers = BeastHeaders(headers)
+      resp
 
   extension (struct: BeastResponse)
     def status: CInt = struct._1
@@ -232,8 +232,9 @@ object structs:
   type ThreadInit = CFuncPtr1[Ptr[Byte], Unit]
   type ThreadStarter = CFuncPtr3[ThreadInit, CInt, Ptr[Byte], Unit]
 
+@link("EasyBeast")
 @extern
-object BeastServer:
+object EasyBeastInterop:
 
   import structs.*
 
@@ -252,5 +253,11 @@ object BeastServer:
                     handler: CFuncPtr): CInt = extern
 
 
-  @name("thread_test")
-  def threadTest(starter: ThreadStarter): Unit = extern
+  @name("response_new")
+  def newResponse(statusCode: CInt): Ptr[BeastResponse] = extern
+
+  @name("body_new")
+  def newBody(body: CString, rawBody: CString, size: CInt): Ptr[BeastBody] = extern
+
+  @name("headers_new")
+  def newHeaders(size: CInt): Ptr[BeastHeaders] = extern

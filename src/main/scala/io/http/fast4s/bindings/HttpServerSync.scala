@@ -2,7 +2,7 @@ package io.http.fast4s.bindings
 
 import io.http.fast4s.HttpServer.{dispatch, threadStart}
 import io.http.fast4s.bindings.structs.*
-import io.http.fast4s.bindings.BeastServer.*
+import io.http.fast4s.bindings.EasyBeastInterop.*
 import io.http.fast4s.types.{Request, Response}
 import io.http.fast4s.bindings.conv.{request, ptr}
 import io.http.fast4s.HttpServer

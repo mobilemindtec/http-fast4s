@@ -28,7 +28,9 @@ scalacOptions ++= Seq(
   "-explain-cyclic",
   "-rewrite",
   "-source:future",
-  "-language:experimental.modularity"
+  "-language:experimental.modularity",
+  "-language:experimental.betterFors",
+  "-language:experimental.namedTuples",
 )
 lazy val root = project.in(file(".")).
   enablePlugins(ScalaNativePlugin).
