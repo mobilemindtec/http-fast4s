@@ -6,6 +6,7 @@ import io.http.fast4s.bindings.conv.{c_str, str}
 import scala.collection.{immutable, mutable}
 import scala.language.experimental.namedTuples
 import scala.scalanative.unsafe.*
+import scala.scalanative.unsafe.linkCppRuntime
 
 object structs:
 
@@ -232,6 +233,7 @@ object structs:
   type ThreadInit = CFuncPtr1[Ptr[Byte], Unit]
   type ThreadStarter = CFuncPtr3[ThreadInit, CInt, Ptr[Byte], Unit]
 
+@linkCppRuntime
 @link("EasyBeast")
 @extern
 object EasyBeastInterop:

@@ -2,8 +2,8 @@ import scala.language.postfixOps
 import scala.scalanative.build.*
 import scala.sys.process.*
 
-scalaVersion := "3.6.2"
-name := "http-fast4s"
+scalaVersion := "3.6.4"
+name := "fast4s"
 organization := "io.http.fast4s"
 
 // set to Debug for compilation details (Info is default)
@@ -45,14 +45,14 @@ lazy val root = project.in(file(".")).
       c.withLTO(LTO.none) // thin
         .withMode(Mode.debug) // releaseFast
         .withGC(GC.immix)
-        .withLinkingOptions(
+        /*.withLinkingOptions(
           c.linkingOptions ++ Seq(
             "-lboost_thread", "-lboost_fiber", "-lboost_context"
           )
-        )
-        .withCompileOptions(c.compileOptions ++ Seq("-g"))
-        //.withCompileOptions(c.compileOptions ++ Seq("-std=c++17"))
-        .withClangPP(file("/usr/bin/clang++").toPath)
+        )*/
+        //.withCompileOptions(c.compileOptions ++ Seq("-g"))
+        //.withCompileOptions(c.compileOptions ++ Seq("-lstdc++"))
+        //.withClangPP(file("/usr/bin/clang++").toPath)
       //.withClang(file("/usr/bin/clang").toPath)
     },
     appStop := {

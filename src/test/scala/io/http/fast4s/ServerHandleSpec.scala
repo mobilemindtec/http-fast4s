@@ -2,6 +2,7 @@ package io.http.fast4s
 
 import io.http.fast4s.app.Fast4s.app
 import io.http.fast4s.types.{HttpMethod, HttpStatus, Request, Response}
+import io.http.fast4s.types.Response.*
 import org.scalatest.funsuite.AnyFunSuite
 
 class ServerHandleSpec extends AnyFunSuite:
@@ -13,22 +14,22 @@ class ServerHandleSpec extends AnyFunSuite:
     app.get("/user") {
       req =>
         req.body match
-          case None => Response.ok("pong")
-          case _ => Response.notFound()
+          case None => Ok("pong")
+          case _ => NotFound()
     }
 
     app.post("/user") {
       req =>
         req.body match
-          case Some("ping") => Response.ok("pong")
-          case _ => Response.badRequest()
+          case Some("ping") => Ok("pong")
+          case _ => BadRequest()
     }
 
     app.get("/user/:id") {
       (req: Request) =>
         req.body match
-          case Some("ping") => Response.ok("pong")
-          case _ => Response.badRequest()
+          case Some("ping") => Ok("pong")
+          case _ => BadRequest()
     }
 
     val server = app.server.create()

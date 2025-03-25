@@ -151,7 +151,7 @@ case object Fast4s:
       _recover = Some(f)
       ()
 
-    def interceptor(status: Int)(f: Interceptor): Unit =
+    def intercept(status: Int)(f: Interceptor): Unit =
       _interceptors.addOne(status -> f)
 
     def enter(method: io.http.fast4s.types.HttpMethod, path: String)(f: MiddlewareEnter[Request, Response]): Unit =

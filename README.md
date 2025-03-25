@@ -1,7 +1,11 @@
 # http-fast4s
 Scala Native on top boost beast
 
-In progress..
+
+
+### Dependencies 
+
+https://github.com/mobilemindtech/easy-beast
 
 
 ### Example
@@ -31,7 +35,7 @@ object AppServer:
       case (req, err) => Response.ok("recovered!")
     }
     
-    app.interceptor(404) {
+    app.intercept(404) {
       case (req, resp) => Response.ok("404")
     }
     
