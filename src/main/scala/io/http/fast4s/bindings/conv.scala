@@ -24,9 +24,9 @@ object conv:
       Request(
         method = HttpMethod(req.method),
         target = req.target,
-        body = req.body,
-        contentType = req.contentType.map(ContentType.make),
-        rawBody = req.rawBody,
+        body = req.body.getOrElse(""),
+        contentType = req.contentType.map(ContentType.make).getOrElse(ContentType.Empty),
+        rawBody = req.rawBody.getOrElse(Nil),
         headers = req.headers,
       )
 
@@ -36,8 +36,8 @@ object conv:
       Response(
         status = HttpStatus.make(resp.status),
         contentType = ContentType.make(resp.contentType.getOrElse("")),
-        body = resp.body,
-        rawBody = resp.rawBody,
+        body = resp.body.getOrElse(""),
+        rawBody = resp.rawBody.getOrElse(Nil),
         headers = resp.headers,
       )
 
@@ -46,8 +46,10 @@ object conv:
       BeastRequest(
         req.method.verb.c_str,
         req.target.c_str,
-        req.contentType.map(_.mimeType.c_str).orNull,
-        BeastBody(req.body, req.rawBody),
+        req.contentType.mimeType.c_str,
+        BeastBody(
+          Option.when(req.body.nonEmpty)(req.body),
+          Option.when(req.rawBody.nonEmpty)(req.rawBody)),
         BeastHeaders(req.headers))
 
 
@@ -56,7 +58,7 @@ object conv:
       BeastResponse(
         status = resp.status.code,
         contentType = resp.contentType.mimeType,
-        body = resp.body,
-        rawBody = resp.rawBody,
+        body = Option.when(resp.body.nonEmpty)(resp.body),
+        rawBody = Option.when(resp.rawBody.nonEmpty)(resp.rawBody),
         headers = resp.headers)
 

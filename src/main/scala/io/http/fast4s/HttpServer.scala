@@ -3,10 +3,11 @@ package io.http.fast4s
 import io.http.fast4s.bindings.structs.ThreadInit
 import io.http.fast4s.types.*
 import io.micro.router.core.|>
-import io.micro.router.{Leave, Enter, Router}
+import io.micro.router.{Enter, Leave, Router}
 
 import scala.language.experimental.namedTuples
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.compiletime.uninitialized
 import scala.scalanative.unsafe.{CInt, Ptr}
 import scala.util.matching.Regex
@@ -15,37 +16,37 @@ import scala.util.matching.Regex
 type Interceptor = (Request, Response) => Response
 type Recover = (Request, Throwable) => Response
 
-type NSLeave = (path: String, after: Leave[Request, Response])
-type NSEnter = (path: String, before: Enter[Request, Response])
+type NSLeave = (path: String, leave: Leave[Request, Response])
+type NSEnter = (path: String, enter: Enter[Request, Response])
 
 trait HttpServer:
 
   def router: Router[Request, Response, RawRequest]
   def recover: Option[Recover]
   def interceptors: Map[Int, Interceptor]
-  def after: Seq[NSLeave]
-  def before: Seq[NSEnter]
+  def leave: Seq[NSLeave]
+  def enter: Seq[NSEnter]
   def run: Int
-  def serve(): Int =
-    run
+  def serve: Int = run
 
-  def build(): HttpServer =
+  def build: HttpServer =
     HttpServer.httpServer = this
     HttpServer.recover = recover
     HttpServer.interceptors = interceptors
-    HttpServer.after = after
-    HttpServer.before = before
+    HttpServer.leave = leave
+    HttpServer.enter = enter
     this
 
   def handle(req: Request): Response = HttpServer.handle(req)
+
 
 private[fast4s] object HttpServer:
 
   var httpServer: HttpServer = uninitialized
   var recover: Option[Recover] = None
   var interceptors: Map[Int, Interceptor] = Map()
-  var after: Seq[NSLeave] = Nil
-  var before: Seq[NSEnter] = Nil
+  var leave: Seq[NSLeave] = Nil
+  var enter: Seq[NSEnter] = Nil
 
   inline def applyEnter(request: Request): Request | Response =
     @tailrec
@@ -58,12 +59,12 @@ private[fast4s] object HttpServer:
             then
               httpServer
                 .router
-                .applyEnter(req.method.toMethod, req, Some(x.before))
+                .applyEnter(req.method.toMethod, req, Some(x.enter))
             else req
           res match
             case  r: Request => each(r, xs)
             case _ => res
-    each(request, httpServer.before)
+    each(request, httpServer.enter)
 
   inline def applyLeave(request: Request, response: Response): Response =
     @tailrec
@@ -76,10 +77,10 @@ private[fast4s] object HttpServer:
             then
               httpServer
                 .router
-                .applyLeave(request.method.toMethod, request, resp, Some(x.after))
+                .applyLeave(request.method.toMethod, request, resp, Some(x.leave))
             else resp
           each(res, xs)
-    each(response, httpServer.after)
+    each(response, httpServer.leave)
 
   inline def applyInterceptors(request: Request)(response: Response): Response =
     @tailrec
@@ -107,7 +108,7 @@ private[fast4s] object HttpServer:
             .recover
             .map { f =>
               f(request, err)
-            }.getOrElse(Response.serverError().asInstanceOf[Response])
+            }.getOrElse(Response.serverError())
 
   inline def dispatch(request: Request): Response =
     val target = request.target
@@ -122,7 +123,7 @@ private[fast4s] object HttpServer:
       .router
       .dispatch(method, target, extra) match
         case Some(resp) => resp
-        case _ => Response.notFound("Not Found").asInstanceOf[Response]
+        case _ => Response.notFound("Not Found")
 
   def threadStart(init: ThreadInit, workers: CInt, ptr: Ptr[Byte]): Unit =
     val threads =

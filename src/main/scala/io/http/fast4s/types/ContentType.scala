@@ -9,6 +9,7 @@ enum ContentType(val mimeType: String):
   case PNG extends ContentType("image/png")
   case JPG extends ContentType("image/jpg")
   case JPEG extends ContentType("image/jpeg")
+  case Empty extends ContentType("")
   case Other(s: String) extends ContentType(s)
 
 object ContentType:
@@ -19,5 +20,7 @@ object ContentType:
     val options = List(
       Json, JavaScript, Html, Text, CSS, PNG, JPG, JPEG
     )
-    options.find(_.mimeType == text).getOrElse(Other(text))
+    options
+      .find(_.mimeType == text)
+      .getOrElse(Other(text))
 

@@ -18,9 +18,9 @@ case object Fast4s:
   private val _routes = mutable.ListBuffer[RouteEntry[Request, Response]]()
 
   // ns middlewares
-  private val _after = mutable.ListBuffer[NSLeave]()
+  private val _leave = mutable.ListBuffer[NSLeave]()
 
-  private val _before = mutable.ListBuffer[NSEnter]()
+  private val _enter = mutable.ListBuffer[NSEnter]()
 
   private val _interceptors = mutable.Map[Int, Interceptor]()
 
@@ -38,16 +38,16 @@ case object Fast4s:
       def router: Router[Request, Response, RawRequest] = Router(routes *)
       def recover: Option[Recover] = _recover
       def interceptors: Map[Int, Interceptor] = _interceptors.toMap
-      def after: Seq[NSLeave] = _after.toSeq
-      def before: Seq[NSEnter] = _before.toSeq
-    server.build()
+      def leave: Seq[NSLeave] = _leave.toSeq
+      def enter: Seq[NSEnter] = _enter.toSeq
+    server.build
 
   private def runServerAsync(host: String,
                              port: Int,
                              threads: Int,
                              routes: Seq[RouteEntry[Request, Response]]): ServerResult =
     buildAsyncServer(host, port, threads, routes)
-      .serve()
+      .serve
 
   def buildServer(host: String,
                         port: Int,
@@ -57,20 +57,20 @@ case object Fast4s:
       def router: Router[Request, Response, RawRequest] = Router(routes *)
       def recover: Option[Recover] = _recover
       def interceptors: Map[Int, Interceptor] = _interceptors.toMap
-      def after: Seq[NSLeave] = _after.toSeq
-      def before: Seq[NSEnter] = _before.toSeq
-    server.build()
+      def leave: Seq[NSLeave] = _leave.toSeq
+      def enter: Seq[NSEnter] = _enter.toSeq
+    server.build
 
   private def runServer(host: String,
                         port: Int,
                         threads: Int,
                         routes: Seq[RouteEntry[Request, Response]]): ServerResult =
       buildServer(host, port, threads, routes)
-        .serve()
+        .serve
 
   object app:
 
-    import io.http.fast4s.app.Fast4sRequestBuilder.given
+    import io.http.fast4s.app.extra.given
 
     def get(path: String, c: Controller[Request, Response]): RouteEntry[Request, Response] =
       route(Get, path, c) |> register
@@ -163,9 +163,9 @@ case object Fast4s:
     def ns(path: String, m: Leave[Request, Response] | Enter[Request, Response]): Unit =
       m match
         case af: Leave[Request, Response] =>
-          _after.addOne((path, af))
+          _leave.addOne((path, af))
         case bf: Enter[Request, Response] =>
-          _before.addOne((path, bf))
+          _enter.addOne((path, bf))
 
 
     def serveAsync(hostname: String = "0.0.0.0", port: Int = 3000, threads: Int = 1): Int =

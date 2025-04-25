@@ -4,7 +4,7 @@ import io.http.fast4s.app.Fast4s.*
 import io.http.fast4s.types.HttpMethod.Get
 import io.http.fast4s.types.{Request, Response}
 
-object AppServer:
+object ExpressLike:
 
   app.get("/") {
     case req => Response.ok("hello, world!")
@@ -39,8 +39,8 @@ object AppServer:
       resp
   }
 
-  def serve =
-    app.serve()
+  def serve = app.serve()
 
-@main def main(args: String*): Int =
-  AppServer.serve
+//@main
+def main(args: String*): Int =
+  ExpressLike.serve

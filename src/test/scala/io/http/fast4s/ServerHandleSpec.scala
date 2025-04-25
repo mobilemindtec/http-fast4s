@@ -7,28 +7,23 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class ServerHandleSpec extends AnyFunSuite:
 
-  extension (s: String) def some: Option[String] = Some(s)
-
   test("request test"){
 
     app.get("/user") {
-      req =>
-        req.body match
-          case None => Ok("pong")
-          case _ => NotFound()
+      _ => Ok("pong")
     }
 
     app.post("/user") {
       req =>
         req.body match
-          case Some("ping") => Ok("pong")
+          case "ping" => Ok("pong")
           case _ => BadRequest()
     }
 
     app.get("/user/:id") {
       (req: Request) =>
         req.body match
-          case Some("ping") => Ok("pong")
+          case "ping" => Ok("pong")
           case _ => BadRequest()
     }
 
@@ -36,7 +31,7 @@ class ServerHandleSpec extends AnyFunSuite:
 
     server
       .handle(Request(HttpMethod.Get, "/user")) match
-        case Response(HttpStatus.OK, Some("pong"), _, _, _) =>
+        case Response(HttpStatus.OK, "pong", _, _, _) =>
         case resp =>  fail(s"expected pong: $resp")
 
     server
@@ -45,8 +40,8 @@ class ServerHandleSpec extends AnyFunSuite:
       case resp =>  fail(s"expected not found: $resp")
 
     server
-      .handle(Request(HttpMethod.Get, "/user", "ping".some)) match
-      case Response(HttpStatus.OK, Some("pong"), _, _, _) =>
+      .handle(Request(HttpMethod.Get, "/user", "ping")) match
+      case Response(HttpStatus.OK, "pong", _, _, _) =>
       case resp =>  fail(s"expected pong: $resp")
   }
 

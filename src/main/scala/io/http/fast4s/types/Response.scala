@@ -6,9 +6,9 @@ import scala.collection.immutable
 
 case class Response(
     status: HttpStatus,
-    body: Option[String] = None,
+    body: String = "",
     contentType: ContentType = ContentType.Text,
-    rawBody: Option[immutable.Seq[Byte]] = None,
+    rawBody: Seq[Byte] = Nil,
     headers: Headers = Map()
 )
 object Response:
@@ -42,22 +42,22 @@ object Response:
       forbiden(body, contentType)
 
   def ok(body: String = "", contentType: ContentType = ContentType.Text): Response =
-    Response(HttpStatus.OK, contentType = contentType, body = Some(body))
+    Response(HttpStatus.OK, contentType = contentType, body = body)
 
   def created(body: String, contentType: ContentType = ContentType.Text): Response =
-    Response(HttpStatus.Created, contentType = contentType, body = Some(body))
+    Response(HttpStatus.Created, contentType = contentType, body = body)
 
   def notFound(body: String = HttpStatus.NotFound.reason, contentType: ContentType = ContentType.Text): Response =
-    Response(HttpStatus.NotFound, contentType = contentType, body = Some(body))
+    Response(HttpStatus.NotFound, contentType = contentType, body = body)
 
   def serverError(body: String = HttpStatus.InternalServerError.reason, contentType: ContentType = ContentType.Text): Response =
-    Response(HttpStatus.InternalServerError, contentType = contentType, body = Some(body))
+    Response(HttpStatus.InternalServerError, contentType = contentType, body = body)
 
   def badRequest(body: String = HttpStatus.BadRequest.reason, contentType: ContentType = ContentType.Text): Response =
-    Response(HttpStatus.BadRequest, contentType = contentType, body = Some(body))
+    Response(HttpStatus.BadRequest, contentType = contentType, body = body)
 
   def unauthorized(body: String = HttpStatus.Unauthorized.reason, contentType: ContentType = ContentType.Text): Response =
-    Response(HttpStatus.Unauthorized, contentType = contentType, body = Some(body))
+    Response(HttpStatus.Unauthorized, contentType = contentType, body = body)
 
   def forbiden(body: String = HttpStatus.Forbidden.reason, contentType: ContentType = ContentType.Text): Response =
-    Response(HttpStatus.Forbidden, contentType = contentType, body = Some(body))
+    Response(HttpStatus.Forbidden, contentType = contentType, body = body)

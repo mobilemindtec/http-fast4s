@@ -7,9 +7,9 @@ import scala.collection.immutable
 case class Request(
     method: HttpMethod,
     target: String,
-    body: Option[String] = None,
-    contentType: Option[ContentType] = None,
-    rawBody: Option[immutable.Seq[Byte]] = None,
+    body: String = "",
+    contentType: ContentType = ContentType.Empty,
+    rawBody: Seq[Byte] = Nil,
     headers: Headers = Map(),
     params: Params = Params(),
     query: Query = Query(),

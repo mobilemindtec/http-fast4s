@@ -4,25 +4,27 @@ import io.http.fast4s.types.*
 import io.micro.router.{RequestBuilder, RouteInfo}
 import language.experimental.modularity
 
-object Fast4sRequestBuilder:
+object extra:
 
-  given RequestBuilder[Request, RawRequest]:
+  type ReqBuilder = RequestBuilder[Request, RawRequest]
+
+  given ReqBuilder:
     def build(routeInfo: RouteInfo,
-                       extra: Option[RawRequest]
-                      ): Request =
+              extra: Option[RawRequest]): Request =
 
       val headers = extra.map(_.headers).getOrElse(Map())
       val contentType = headers
         .find(_._1.toLowerCase == "content-type")
         .map(_._2)
         .map(ContentType.make)
+        .getOrElse(ContentType.Empty)
 
       Request(
         routeInfo.method.toHttpMethod,
         routeInfo.target,
-        extra.flatMap(_.body),
+        extra.map(_.body).getOrElse(""),
         contentType,
-        extra.flatMap(_.bodyRaw),
+        extra.map(_.bodyRaw).getOrElse(Nil),
         headers,
         routeInfo.params,
         routeInfo.query,
