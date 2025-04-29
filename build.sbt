@@ -2,42 +2,62 @@ import scala.language.postfixOps
 import scala.scalanative.build.*
 import scala.sys.process.*
 
-scalaVersion := "3.6.4"
-name := "fast4s"
-organization := "io.http.fast4s"
+val commonSettings = Seq(
+  scalaVersion := "3.6.4",
+  scalacOptions ++= Seq(
+    "-new-syntax",
+    //"-no-indent",
+    "-Wvalue-discard",
+    "-Wunused:all",
+    //"-Werror",
+    "-deprecation",
+    "-explain",
+    "-explain-cyclic",
+    "-rewrite",
+    "-source:future",
+    "-language:experimental.modularity",
+    "-language:experimental.betterFors",
+    "-language:experimental.namedTuples",
+  ),
 
-// set to Debug for compilation details (Info is default)
-logLevel := Level.Info
-ThisBuild / usePipelining := true
+  // set to Debug for compilation details (Info is default)
+   logLevel := Level.Info,
+   usePipelining := true,
+)
 
+// deps
+lazy val microRouter = ProjectRef(file("../micro-router"), "routerNative")
+lazy val jsonCodec = ProjectRef(file("../json-codec"), "appNative")
+
+//tasks
 lazy val appStop = inputKey[Unit]("stop app")
 lazy val appRestart = inputKey[Unit]("run app")
 lazy val showPid = inputKey[Unit]("show app PID")
 
-lazy val microRouter = ProjectRef(file("../micro-router"), "appNative")
-lazy val jsonCodec = ProjectRef(file("../json-codec"), "appNative")
-
-scalacOptions ++= Seq(
-  "-new-syntax",
-  //"-no-indent",
-  "-Wvalue-discard",
-  "-Wunused:all",
-  //"-Werror",
-  "-deprecation",
-  "-explain",
-  "-explain-cyclic",
-  "-rewrite",
-  "-source:future",
-  "-language:experimental.modularity",
-  "-language:experimental.betterFors",
-  "-language:experimental.namedTuples",
-)
-lazy val root = project.in(file(".")).
+lazy val fast4s = project.in(file("fast4s")).
   enablePlugins(ScalaNativePlugin).
   dependsOn(microRouter).
-  dependsOn(jsonCodec).
+  settings(commonSettings).
   settings(
+    name := "fast4s",
+    organization := "io.http.fast4s",
+    libraryDependencies += "org.scalatest" %%% "scalatest" % "3.2.19" % "test",
+    // defaults set with common options shown
+    nativeConfig ~= { c =>
+      c.withLTO(LTO.none) // thin
+        .withMode(Mode.debug) // releaseFast
+        .withGC(GC.immix)
+    },
+  )
 
+lazy val example = project.in(file("example")).
+  enablePlugins(ScalaNativePlugin).
+  dependsOn(jsonCodec).
+  dependsOn(fast4s).
+  settings(commonSettings).
+  settings(
+    name := "example",
+    organization := "io.app",
     libraryDependencies += "org.scalatest" %%% "scalatest" % "3.2.19" % "test",
 
     // defaults set with common options shown
@@ -45,14 +65,14 @@ lazy val root = project.in(file(".")).
       c.withLTO(LTO.none) // thin
         .withMode(Mode.debug) // releaseFast
         .withGC(GC.immix)
-        /*.withLinkingOptions(
-          c.linkingOptions ++ Seq(
-            "-lboost_thread", "-lboost_fiber", "-lboost_context"
-          )
-        )*/
-        //.withCompileOptions(c.compileOptions ++ Seq("-g"))
-        //.withCompileOptions(c.compileOptions ++ Seq("-lstdc++"))
-        //.withClangPP(file("/usr/bin/clang++").toPath)
+      /*.withLinkingOptions(
+        c.linkingOptions ++ Seq(
+          "-lboost_thread", "-lboost_fiber", "-lboost_context"
+        )
+      )*/
+      //.withCompileOptions(c.compileOptions ++ Seq("-g"))
+      //.withCompileOptions(c.compileOptions ++ Seq("-lstdc++"))
+      //.withClangPP(file("/usr/bin/clang++").toPath)
       //.withClang(file("/usr/bin/clang").toPath)
     },
     appStop := {
@@ -107,5 +127,5 @@ lazy val root = project.in(file(".")).
     }
   )
 
-addCommandAlias("run", "appStart")
+addCommandAlias("run", "app/appStart")
 
